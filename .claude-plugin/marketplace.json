@@ -1,0 +1,20 @@
+{
+  "name": "cmux-tab-agents",
+  "description": "Marketplace for the cmux-tab-agents Claude Code plugin",
+  "owner": {
+    "name": "Ahmed El Banna",
+    "email": "ahmed.henidy@alpheya.com"
+  },
+  "plugins": [
+    {
+      "name": "cmux-tab-agents",
+      "description": "Claude Code subagent dispatcher for cmux: spawn the implementer/spec-reviewer/code-reviewer pipeline as real claude processes in cmux tabs, each in its own git worktree.",
+      "version": "0.1.0",
+      "source": "./",
+      "author": {
+        "name": "Ahmed El Banna",
+        "email": "ahmed.henidy@alpheya.com"
+      }
+    }
+  ]
+}
