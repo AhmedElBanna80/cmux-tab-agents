@@ -44,6 +44,18 @@ The plugin is **repo-agnostic**: it discovers worktree base, default branch, and
 /plugin marketplace add AhmedElBanna80/cmux-tab-agents
 ```
 
+The short form above clones over SSH. If you don't have a GitHub SSH key configured, the clone will fail — use the HTTPS URL instead:
+
+```sh
+/plugin marketplace add https://github.com/AhmedElBanna80/cmux-tab-agents
+```
+
+Or, if you want the short form to keep working everywhere, tell git to rewrite GitHub SSH URLs to HTTPS globally:
+
+```sh
+git config --global url."https://github.com/".insteadOf "git@github.com:"
+```
+
 ### 2. Install the plugin
 
 ```sh
