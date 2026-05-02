@@ -100,6 +100,24 @@ Upstream `superpowers:subagent-driven-development` has a "Model Selection" secti
 
 This brings the fork to per-task model-selection parity with upstream without changing the prompt-level discipline (TDD, verification, hook-bypass prohibition) that the model is bound by.
 
+### 13. Bidirectional planner ↔ agent conversation (v0.2.1, additive)
+
+| Upstream | This fork |
+|---|---|
+| Subagent return value is one text blob; the controller is the only one who can "reply" by spawning a new subagent | Tab-agent terminal state is a push line, **and** the planner can `cmux send --surface <agent-surface>` to inject a reply into the agent's input box, which the agent's TUI processes as a new user-message turn — no re-spawn needed |
+
+v0.2.0 (#1) added the agent → planner push direction. v0.2.1 documents the reverse direction explicitly: the same `cmux send` primitive lets the planner reply to any tab-agent it has dispatched, turning the one-line push into a real back-and-forth conversation.
+
+Implications:
+
+1. **Push moments are an enumeration, not a single moment.** Implementer prompts now list `NEEDS_CONTEXT` / `BLOCKED` / `DONE_WITH_CONCERNS` / `DONE` as legitimate push moments; reviewer prompts list `APPROVED` / `ISSUES_FOUND`. After every push, the agent idles waiting for the planner's reply and processes it as a new user-message turn. Boot-time pushes remain forbidden (they would spam the planner during fan-out).
+2. **For reviewer `ISSUES_FOUND`, the planner has two valid responses** — re-dispatch the implementer (fresh tab, clean context, optionally a different `--model`) or reply directly to the existing implementer's surface (same context, less spawn overhead). Both are documented in `SKILL.md` under "How to talk back to a tab-agent" along with decision criteria.
+3. **Reviewers who receive a planner reply must rewrite their result file.** The result file is the source of truth for downstream consumers; if the planner overrode the verdict but the file still says the old verdict, downstream phases will read stale information. The reviewer prompts now spell out the corrected-result-file rule explicitly.
+4. **Hard-rule override refusal is documented in both directions.** A planner reply that asks the agent to bypass hooks, skip tests, edit outside the worktree, or soften a hook-bypass finding must be REFUSED by the agent — same discipline, just delivered via a different channel. The agent pushes back with `BLOCKED` (implementer) or `ISSUES_FOUND` (reviewers) and idles for an alternative path or human escalation.
+5. **No mechanical changes** to `_dispatch_common.sh` or any script. The channel mechanism was already complete in v0.2.0; v0.2.1 is purely the prompt-level language to *use* it as a conversation, plus the `SKILL.md` planner-side guidance for tracking surfaces and replying.
+
+Override mechanism: same as v0.2.0 (`--planner-surface ""` on dispatch disables the channel both ways; the agent won't push and the planner has nowhere documented to reply, falling back to pure polling).
+
 ## Re-syncing
 
 When upstream `superpowers/X.Y.Z` ships:
