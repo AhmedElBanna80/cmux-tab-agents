@@ -15,6 +15,8 @@ Usage: $0 --ticket TICKET --title TITLE --slug SLUG \\
           (--task-text "TEXT" | --task-file PATH) \\
           [--type TYPE] \\
           [--planner-workspace REF] \\
+          [--planner-surface REF] \\
+          [--model MODEL_ID] \\
           [--implementer-sha SHA] \\
           [--feedback-from-previous-review TEXT_OR_PATH]
 EOF
@@ -23,9 +25,9 @@ EOF
 
 # render_template <src> <dst>  — substitutes {{KEY}} placeholders from env vars.
 # Reads source path and dest path from argv. Reads template values from env
-# (TPL_TICKET, TPL_TITLE, TPL_SLUG, TPL_WORKTREE, TPL_PWS, TPL_IMPL_SHA,
-# TPL_TASK, TPL_FEEDBACK) — passing through env avoids shell quoting issues
-# with multiline task text and arbitrary review feedback.
+# (TPL_TICKET, TPL_TITLE, TPL_SLUG, TPL_WORKTREE, TPL_PWS, TPL_PSURF,
+# TPL_IMPL_SHA, TPL_TASK, TPL_FEEDBACK) — passing through env avoids shell
+# quoting issues with multiline task text and arbitrary review feedback.
 render_template() {
   local src="$1" dst="$2"
   python3 - "$src" "$dst" <<'PY'
@@ -37,6 +39,7 @@ mapping = {
     "SLUG":              os.environ.get("TPL_SLUG", ""),
     "WORKTREE":          os.environ.get("TPL_WORKTREE", ""),
     "PLANNER_WORKSPACE": os.environ.get("TPL_PWS", ""),
+    "PLANNER_SURFACE":   os.environ.get("TPL_PSURF", ""),
     "IMPLEMENTER_SHA":   os.environ.get("TPL_IMPL_SHA", ""),
     "TASK":              os.environ.get("TPL_TASK", ""),
     "FEEDBACK":          os.environ.get("TPL_FEEDBACK", ""),
@@ -52,7 +55,7 @@ PY
 
 dispatch_main() {
   local TICKET="" TITLE="" SLUG="" TASK_TEXT="" TASK_FILE=""
-  local TYPE="" PLANNER_WS="" IMPL_SHA="" FEEDBACK=""
+  local TYPE="" PLANNER_WS="" PLANNER_SURFACE="" MODEL="" IMPL_SHA="" FEEDBACK=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -63,6 +66,8 @@ dispatch_main() {
       --task-file)           TASK_FILE="$2"; shift 2 ;;
       --type)                TYPE="$2"; shift 2 ;;
       --planner-workspace)   PLANNER_WS="$2"; shift 2 ;;
+      --planner-surface)     PLANNER_SURFACE="$2"; shift 2 ;;
+      --model)               MODEL="$2"; shift 2 ;;
       --implementer-sha)     IMPL_SHA="$2"; shift 2 ;;
       --feedback-from-previous-review) FEEDBACK="$2"; shift 2 ;;
       -h|--help)             usage ;;
@@ -99,6 +104,36 @@ dispatch_main() {
     exit 1
   fi
 
+  # Identify the dispatcher's own cmux surface and pane up front. The caller
+  # surface_ref doubles as the default --planner-surface (so the spawned tab
+  # can push status messages back to the planner's input box) and the caller
+  # pane_ref is reused later when spawning the child surface.
+  local IDENTIFY_JSON CALLER_SURFACE CALLER_PANE
+  IDENTIFY_JSON=$(cmux --json identify 2>/dev/null) || IDENTIFY_JSON=""
+  CALLER_SURFACE=$(printf '%s' "$IDENTIFY_JSON" | python3 -c \
+    'import sys,json
+try:
+    d=json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+print(d.get("caller",{}).get("surface_ref") or d.get("focused",{}).get("surface_ref",""))' \
+    2>/dev/null) || CALLER_SURFACE=""
+  CALLER_PANE=$(printf '%s' "$IDENTIFY_JSON" | python3 -c \
+    'import sys,json
+try:
+    d=json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref",""))' \
+    2>/dev/null) || CALLER_PANE=""
+
+  # Default planner surface = the dispatcher's own surface. Tab-agents push
+  # one terminal-state message to this surface so the planner doesn't have to
+  # poll. Empty value disables push.
+  if [[ -z "$PLANNER_SURFACE" ]]; then
+    PLANNER_SURFACE="$CALLER_SURFACE"
+  fi
+
   # 1. Provision worktree (idempotent).
   local ENSURE="$SCRIPT_DIR/ensure-worktree.sh"
   local WT
@@ -115,23 +150,19 @@ dispatch_main() {
 
   local RENDERED="$WT/.cmux-tab-prompt-${PHASE}.md"
   TPL_TICKET="$TICKET" TPL_TITLE="$TITLE" TPL_SLUG="$SLUG" TPL_WORKTREE="$WT" \
-    TPL_PWS="$PLANNER_WS" TPL_IMPL_SHA="$IMPL_SHA" TPL_TASK="$TASK_TEXT" \
-    TPL_FEEDBACK="$FEEDBACK" \
+    TPL_PWS="$PLANNER_WS" TPL_PSURF="$PLANNER_SURFACE" \
+    TPL_IMPL_SHA="$IMPL_SHA" TPL_TASK="$TASK_TEXT" TPL_FEEDBACK="$FEEDBACK" \
     render_template "$TEMPLATE" "$RENDERED"
 
-  # 3. Spawn a new tab in the planner's pane.
-  # NOTE: $CMUX_PANEL_ID is the *surface* ID, not the pane. Resolve the pane
-  # ref via `cmux identify --json` instead.
-  local pane
-  pane=$(cmux --json identify 2>/dev/null | python3 -c \
-    'import sys,json; d=json.load(sys.stdin); print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref",""))' 2>/dev/null) || true
-  if [[ -z "$pane" ]]; then
+  # 3. Spawn a new tab in the planner's pane. Reuse the pane ref we already
+  # resolved via `cmux identify` above.
+  if [[ -z "$CALLER_PANE" ]]; then
     echo "$0: cannot determine current pane (cmux identify failed; not running inside a cmux tab?)" >&2
     exit 1
   fi
 
   local SPAWN_JSON
-  if ! SPAWN_JSON=$(cmux --json new-surface --type terminal --pane "$pane" 2>/dev/null); then
+  if ! SPAWN_JSON=$(cmux --json new-surface --type terminal --pane "$CALLER_PANE" 2>/dev/null); then
     echo "$0: cmux new-surface failed" >&2
     exit 1
   fi
@@ -153,8 +184,10 @@ dispatch_main() {
   # The shell prompt accepts \n as Enter (so cd && claude runs immediately);
   # we fire `send-key enter` separately as a safety net for terminals where
   # the trailing newline is interpreted differently.
+  local model_flag=""
+  [[ -n "$MODEL" ]] && model_flag=" --model $MODEL"
   cmux send --surface "$SURFACE" \
-    "cd $WT && claude --dangerously-skip-permissions --append-system-prompt \"\$(cat $RENDERED)\""$'\n'
+    "cd $WT && claude --dangerously-skip-permissions${model_flag} --append-system-prompt \"\$(cat $RENDERED)\""$'\n'
   cmux send-key --surface "$SURFACE" enter >/dev/null 2>&1 || true
 
   # 5. Set initial dispatch pill on the planner's workspace.

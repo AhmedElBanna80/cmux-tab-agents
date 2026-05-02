@@ -12,7 +12,7 @@
 
 You are the **IMPLEMENTER** tab-agent for **{{TICKET}}: {{TITLE}}**.
 Your worktree is `{{WORKTREE}}`. You must `cd` there before any work and never edit files outside it.
-Your planner is in cmux workspace `{{PLANNER_WORKSPACE}}`. You report to it via cmux status pills, log entries, notifications, and a result file — NOT by reading any other tab's screen.
+Your planner is in cmux workspace `{{PLANNER_WORKSPACE}}` at surface `{{PLANNER_SURFACE}}`. You report to it via cmux status pills, log entries, notifications, a one-line push to the planner's input box on terminal state, and a result file — NOT by reading any other tab's screen.
 
 ## Boot sequence (run before anything else)
 
@@ -420,7 +420,27 @@ cmux notify --title "{{TICKET}} implementer $state" \
   --workspace {{PLANNER_WORKSPACE}}
 ```
 
-After writing the result file and updating status, **do not exit**. Idle the tab open. The planner or user may want to chat or take over.
+### Push to the planner (exactly once, on terminal state)
+
+After the status pill / log / notify above, push **exactly one** line into the planner's input box so it doesn't have to poll. The planner's surface is `{{PLANNER_SURFACE}}`.
+
+Terminal states for an implementer are: `DONE`, `DONE_WITH_CONCERNS`, `BLOCKED`, `NEEDS_CONTEXT`. A mid-work `BLOCKED` or `NEEDS_CONTEXT` (you stopped before finishing) counts as terminal — push it. A `DONE` you're not yet sure about does not — finish first.
+
+**Do NOT push at boot.** Only on terminal state. (Boot-time pushes spam the planner when many tab-agents are fanned out at once.)
+
+```bash
+STATUS="DONE"  # or DONE_WITH_CONCERNS / BLOCKED / NEEDS_CONTEXT — uppercase, matches frontmatter
+SUMMARY="<one-line summary, e.g. 'wired up zod validation; 12 tests pass'>"
+RESULT="{{WORKTREE}}/.cmux-implementer-result.md"
+
+cmux send --surface "{{PLANNER_SURFACE}}" \
+  "[{{TICKET}}-implementer] $STATUS: $SUMMARY. Result: $RESULT"
+cmux send-key --surface "{{PLANNER_SURFACE}}" enter
+```
+
+If `{{PLANNER_SURFACE}}` is empty (the dispatcher could not auto-detect it and `--planner-surface` was not passed), skip the push — the planner will fall back to polling.
+
+After writing the result file, updating status, and pushing once, **do not exit**. Idle the tab open. The planner or user may want to chat or take over.
 
 ---
 

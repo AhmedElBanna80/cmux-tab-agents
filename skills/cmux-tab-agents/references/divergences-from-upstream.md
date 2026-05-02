@@ -82,6 +82,24 @@ Risk: a compromised seed prompt could do destructive things in the worktree. Mit
 
 Upstream `superpowers:using-git-worktrees` has its own priority logic. This fork's `ensure-worktree.sh` replicates the spirit (env var → per-repo config → project-local `.worktrees` if gitignored → sibling default) without invoking the upstream skill. See `configuration.md`.
 
+### 11. Active push channel back to the planner (additive, not in upstream)
+
+| Upstream | This fork |
+|---|---|
+| Subagent's text blob is the return value; controller waits for it inline | Tab-agent writes a result file (passive) **and** pushes one line into the planner's input box on terminal state (active) |
+
+Upstream's `Agent({...})` is synchronous — the controller blocks on the call and reads the return value when the subagent finishes. This fork's tab-agents are real `claude` processes running asynchronously in cmux tabs; without an active push, the planner has to poll the result file. The active push (one `cmux send` per tab-agent, only on terminal state) inverts that: the planner's input box becomes an inbox of completed work.
+
+Mechanism: each dispatch script auto-detects the dispatcher's `surface_ref` via `cmux identify`, threads it through as `{{PLANNER_SURFACE}}` in the seed prompt, and the seed prompt instructs the tab-agent to do exactly one `cmux send` + `cmux send-key enter` on terminal state (`DONE`/`DONE_WITH_CONCERNS`/`BLOCKED`/`NEEDS_CONTEXT` for implementers, `APPROVED`/`ISSUES_FOUND` for reviewers). Boot-time pushes are explicitly forbidden in the prompts to avoid spamming when the planner fans out N agents in parallel.
+
+Override mechanism: `--planner-surface <ref>` on any dispatch script. Pass `""` to disable the push channel entirely (pure polling). See `configuration.md` and the "How tab-agents talk to you" section of `SKILL.md` for the full protocol, including the security caveat that the planner must always read the cited result file rather than acting on the pushed message body.
+
+### 12. `--model` parity with upstream Model Selection (additive)
+
+Upstream `superpowers:subagent-driven-development` has a "Model Selection" section recommending cheaper/faster models for mechanical sub-tasks (typing, refactoring) and stronger models for ambiguous design work, exposed via the `model` parameter on `Agent({...})`. This fork adds the `--model <model-id>` flag to all three dispatch scripts (and the shared `_dispatch_common.sh`). When passed, it's appended verbatim to the tab-agent's `claude` boot command (`claude --dangerously-skip-permissions --model <id> --append-system-prompt ...`). When omitted, the tab-agent runs on the user's default model — preserving prior behavior.
+
+This brings the fork to per-task model-selection parity with upstream without changing the prompt-level discipline (TDD, verification, hook-bypass prohibition) that the model is bound by.
+
 ## Re-syncing
 
 When upstream `superpowers/X.Y.Z` ships:
