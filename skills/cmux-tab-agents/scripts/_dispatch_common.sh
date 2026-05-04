@@ -17,84 +17,10 @@ Usage: $0 --ticket TICKET --title TITLE --slug SLUG \\
           [--planner-workspace REF] \\
           [--planner-surface REF] \\
           [--model MODEL_ID] \\
-          [--effort LEVEL] \\
           [--implementer-sha SHA] \\
           [--feedback-from-previous-review TEXT_OR_PATH]
 EOF
   exit 1
-}
-
-# _read_toml_value <file> <key> — naive TOML-flat-key lookup. Echoes the value
-# (with surrounding "..." or '...' stripped) to stdout. Returns 1 if file is
-# missing or key is absent. Intentionally matches the parser used by
-# ensure-worktree.sh for consistency.
-_read_toml_value() {
-  local file="$1" key="$2"
-  [[ -f "$file" ]] || return 1
-  local line
-  line=$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$file" 2>/dev/null | head -1) || return 1
-  [[ -n "$line" ]] || return 1
-  printf '%s' "$line" \
-    | sed -E "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*//" \
-    | sed -E 's/^"(.*)"$/\1/' \
-    | sed -E "s/^'(.*)'\$/\1/"
-}
-
-# resolve_default <toml_key> <env_var_name> <cli_value>
-# Returns the first non-empty value among (in order):
-#   1. <cli_value>
-#   2. ${<env_var_name>}                 (indirect expansion)
-#   3. <toml_key> in $REPO_CONFIG        (per-repo .claude/cmux-tab-agents.toml)
-#   4. <toml_key> in $USER_CONFIG        (user-global ~/.claude/cmux-tab-agents.toml)
-# Echoes empty if none set. Caller decides whether unset → flag-omitted.
-resolve_default() {
-  local key="$1" env_name="$2" cli="$3"
-  if [[ -n "$cli" ]]; then
-    printf '%s' "$cli"
-    return 0
-  fi
-  local env_val="${!env_name:-}"
-  if [[ -n "$env_val" ]]; then
-    printf '%s' "$env_val"
-    return 0
-  fi
-  local v
-  if [[ -n "${REPO_CONFIG:-}" && -f "${REPO_CONFIG:-}" ]]; then
-    if v=$(_read_toml_value "$REPO_CONFIG" "$key") && [[ -n "$v" ]]; then
-      printf '%s' "$v"
-      return 0
-    fi
-  fi
-  if [[ -n "${USER_CONFIG:-}" && -f "${USER_CONFIG:-}" ]]; then
-    if v=$(_read_toml_value "$USER_CONFIG" "$key") && [[ -n "$v" ]]; then
-      printf '%s' "$v"
-      return 0
-    fi
-  fi
-  printf ''
-}
-
-# resolved_boot_flags — emit the trailing " --model X --effort Y" segment of
-# the claude boot command. Reads $RESOLVED_MODEL / $RESOLVED_EFFORT from the
-# environment. Empty when neither is set; leading space when at least one is.
-resolved_boot_flags() {
-  local out=""
-  if [[ -n "${RESOLVED_MODEL:-}" ]]; then
-    out+=" --model ${RESOLVED_MODEL}"
-  fi
-  if [[ -n "${RESOLVED_EFFORT:-}" ]]; then
-    out+=" --effort ${RESOLVED_EFFORT}"
-  fi
-  printf '%s' "$out"
-}
-
-# claude_boot_command <worktree> <rendered_path> — emit the shell one-liner
-# that boots the tab-agent's claude process. Reads $RESOLVED_MODEL /
-# $RESOLVED_EFFORT via resolved_boot_flags.
-claude_boot_command() {
-  local wt="$1" rendered="$2"
-  printf 'cd %s && claude --dangerously-skip-permissions%s --append-system-prompt "$(cat %s)"' \
-    "$wt" "$(resolved_boot_flags)" "$rendered"
 }
 
 # render_template <src> <dst>  — substitutes {{KEY}} placeholders from env vars.
@@ -129,7 +55,7 @@ PY
 
 dispatch_main() {
   local TICKET="" TITLE="" SLUG="" TASK_TEXT="" TASK_FILE=""
-  local TYPE="" PLANNER_WS="" PLANNER_SURFACE="" MODEL="" EFFORT="" IMPL_SHA="" FEEDBACK=""
+  local TYPE="" PLANNER_WS="" PLANNER_SURFACE="" MODEL="" IMPL_SHA="" FEEDBACK=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -142,20 +68,12 @@ dispatch_main() {
       --planner-workspace)   PLANNER_WS="$2"; shift 2 ;;
       --planner-surface)     PLANNER_SURFACE="$2"; shift 2 ;;
       --model)               MODEL="$2"; shift 2 ;;
-      --effort)              EFFORT="$2"; shift 2 ;;
       --implementer-sha)     IMPL_SHA="$2"; shift 2 ;;
       --feedback-from-previous-review) FEEDBACK="$2"; shift 2 ;;
       -h|--help)             usage ;;
       *) echo "$0: unknown arg '$1'" >&2; usage ;;
     esac
   done
-
-  if [[ -n "$EFFORT" ]]; then
-    case "$EFFORT" in
-      low|medium|high|xhigh|max) ;;
-      *) echo "$0: --effort must be one of low|medium|high|xhigh|max (got '$EFFORT')" >&2; exit 1 ;;
-    esac
-  fi
 
   [[ -z "$TICKET" ]] && { echo "$0: --ticket required" >&2; usage; }
   [[ -z "$TITLE"  ]] && { echo "$0: --title required"  >&2; usage; }
@@ -226,29 +144,6 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
     exit 1
   fi
 
-  # 1a. Resolve layered defaults for --model and --effort.
-  # Order: cli > env > per-repo TOML > user-global TOML > unset. The TOML
-  # files share the format documented in references/configuration.md.
-  local _REPO_ROOT
-  _REPO_ROOT=$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null) || _REPO_ROOT=""
-  local REPO_CONFIG="" USER_CONFIG="$HOME/.claude/cmux-tab-agents.toml"
-  [[ -n "$_REPO_ROOT" ]] && REPO_CONFIG="$_REPO_ROOT/.claude/cmux-tab-agents.toml"
-  export REPO_CONFIG USER_CONFIG
-  local RESOLVED_MODEL RESOLVED_EFFORT
-  RESOLVED_MODEL=$(resolve_default default_model CMUX_TAB_AGENTS_DEFAULT_MODEL "$MODEL")
-  RESOLVED_EFFORT=$(resolve_default default_effort CMUX_TAB_AGENTS_DEFAULT_EFFORT "$EFFORT")
-  if [[ -n "$RESOLVED_EFFORT" ]]; then
-    case "$RESOLVED_EFFORT" in
-      low|medium|high|xhigh|max) ;;
-      *)
-        echo "$0: resolved default_effort='$RESOLVED_EFFORT' is not one of low|medium|high|xhigh|max." >&2
-        echo "    Check $REPO_CONFIG and $USER_CONFIG, or unset CMUX_TAB_AGENTS_DEFAULT_EFFORT." >&2
-        exit 1
-        ;;
-    esac
-  fi
-  export RESOLVED_MODEL RESOLVED_EFFORT
-
   # 2. Render seed prompt for this phase.
   local TEMPLATE="$SKILL_ROOT/prompts/${PHASE}-tab-prompt.md"
   [[ -r "$TEMPLATE" ]] || { echo "$0: missing template $TEMPLATE" >&2; exit 1; }
@@ -288,11 +183,11 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
   # we don't have to embed multi-KB of prompt text in a `cmux send` payload.
   # The shell prompt accepts \n as Enter (so cd && claude runs immediately);
   # we fire `send-key enter` separately as a safety net for terminals where
-  # the trailing newline is interpreted differently. claude_boot_command reads
-  # $RESOLVED_MODEL / $RESOLVED_EFFORT and splices them into the boot string.
-  local BOOT
-  BOOT=$(claude_boot_command "$WT" "$RENDERED")
-  cmux send --surface "$SURFACE" "${BOOT}"$'\n'
+  # the trailing newline is interpreted differently.
+  local model_flag=""
+  [[ -n "$MODEL" ]] && model_flag=" --model $MODEL"
+  cmux send --surface "$SURFACE" \
+    "cd $WT && claude --dangerously-skip-permissions${model_flag} --append-system-prompt \"\$(cat $RENDERED)\""$'\n'
   cmux send-key --surface "$SURFACE" enter >/dev/null 2>&1 || true
 
   # 5. Set initial dispatch pill on the planner's workspace.
