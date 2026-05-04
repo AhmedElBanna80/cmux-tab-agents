@@ -18,6 +18,10 @@ Use this skill instead of upstream `superpowers:subagent-driven-development` whe
 
 If `$CMUX_SURFACE_ID` is empty, fall back to upstream `superpowers:subagent-driven-development`. The two skills have identical semantics, so the fallback path is safe.
 
+## First-run setup (optional)
+
+Run `/cmux-tab-agents:setup` once after install. It's an interactive wizard that asks for a default model and a default thinking-effort level, then writes them to `~/.claude/cmux-tab-agents.toml` (or a per-repo file). After this, every dispatch picks up these defaults — you don't have to repeat `--model` / `--effort` on each call. See `references/configuration.md` for the full layered-defaults resolution order. Skipping setup is fine; the plugin works without it (every dispatch falls through to the `claude` CLI's own defaults).
+
 ## What "the planner" means in this skill
 
 You are the planner. Your job is to:
@@ -135,9 +139,10 @@ The script:
 ### Optional flags shared by all three dispatch scripts
 
 - `--planner-surface <ref>` — surface ref where tab-agents should push their terminal-state line (see "How tab-agents talk to you" below). Defaults to the dispatcher's own surface, auto-detected via `cmux identify`. Pass explicitly only if you want the push to land somewhere other than where you ran the script.
-- `--model <model-id>` — override the Claude model the tab-agent's `claude` process runs with. Appended verbatim as `--model <id>` on the boot command. Omit to use the user's default. Use cheaper/faster models for mechanical tasks (e.g. `claude-haiku-4-5-20251001`) and stronger models for ambiguous design work, mirroring upstream `superpowers:subagent-driven-development`'s "Model Selection" guidance.
+- `--model <model-id>` — override the Claude model the tab-agent's `claude` process runs with. Appended verbatim as `--model <id>` on the boot command. Resolution order when omitted: env (`CMUX_TAB_AGENTS_DEFAULT_MODEL`) → per-repo TOML → user-global TOML → unset. Use cheaper/faster models for mechanical tasks (e.g. `claude-haiku-4-5-20251001`) and stronger models for ambiguous design work, mirroring upstream `superpowers:subagent-driven-development`'s "Model Selection" guidance.
+- `--effort <level>` — thinking-effort level for the tab-agent's `claude` process. One of `low | medium | high | xhigh | max`. Same resolution order as `--model` (env → per-repo → user-global → unset). Higher levels produce more reasoning at higher cost; pick to match task complexity.
 
-Both flags are backward-compatible: existing dispatch invocations without them keep working.
+All three flags are backward-compatible: existing dispatch invocations without them keep working. See `references/configuration.md` for the full layered-defaults model and `/cmux-tab-agents:setup` for an interactive way to set the defaults once and forget.
 
 ### Dispatch a spec-reviewer
 

@@ -52,6 +52,16 @@ The plugin is **repo-agnostic**: it discovers worktree base, default branch, and
 
 The skill named `cmux-tab-agents` will appear in your available-skills list. It triggers on phrasing like "execute this plan with cmux tab agents", "dispatch tab agents", "spawn an implementer in a tab", or any moment a planner is breaking a story into sub-tasks while inside cmux.
 
+### 3. (Optional) Run the setup wizard
+
+```sh
+/cmux-tab-agents:setup
+```
+
+Interactive wizard that asks for a default Claude model and a default thinking-effort level (`low`/`medium`/`high`/`xhigh`/`max`), then writes them to `~/.claude/cmux-tab-agents.toml` (or a per-repo file). Once set, every dispatch picks up these defaults — you don't have to repeat `--model` / `--effort` on each call. Skipping the wizard is fine; the plugin works without it (every dispatch falls through to the `claude` CLI's own defaults).
+
+If `/cmux-tab-agents:setup` doesn't show up after install, `/reload-plugins` (or restart Claude Code) — `/plugin update` does not always re-discover newly added top-level command directories until plugins are reloaded.
+
 ## Quick start
 
 Inside a cmux session, with the plugin installed, give the planner a parent ticket and ask it to dispatch:
@@ -84,12 +94,14 @@ And one in-band channel:
 
 ## Configuration
 
-Defaults work out of the box for most repos. Two override mechanisms when needed:
+Defaults work out of the box for most repos. Override mechanisms when needed:
 
-- **Env var**: `CMUX_TAB_AGENTS_WORKTREE_BASE=/path/to/base` overrides the worktree base globally.
-- **Per-repo TOML**: `<repo>/.claude/cmux-tab-agents.toml` with keys `worktree_base`, `branch_type_default`, `setup_command`, `ticket_pattern`.
+- **Layered defaults for `--model` and `--effort`** (v0.3.0+): resolved in order CLI flag > env var (`CMUX_TAB_AGENTS_DEFAULT_MODEL` / `CMUX_TAB_AGENTS_DEFAULT_EFFORT`) > per-repo TOML > user-global TOML > unset. The two new TOML keys are `default_model` and `default_effort`. Set these once via `/cmux-tab-agents:setup` and forget. Effort levels: `low | medium | high | xhigh | max`.
+- **Worktree base**: `CMUX_TAB_AGENTS_WORKTREE_BASE=/path/to/base` env var overrides the worktree base globally.
+- **Per-repo TOML**: `<repo>/.claude/cmux-tab-agents.toml` accepts `default_model`, `default_effort`, `worktree_base`, `branch_type_default`, `setup_command`, `ticket_pattern`.
+- **User-global TOML**: `~/.claude/cmux-tab-agents.toml` accepts `default_model` and `default_effort` (the others are repo-scoped by nature).
 
-Full details: [`skills/cmux-tab-agents/references/configuration.md`](skills/cmux-tab-agents/references/configuration.md).
+Full details and the complete resolution table: [`skills/cmux-tab-agents/references/configuration.md`](skills/cmux-tab-agents/references/configuration.md).
 
 ## Differences from upstream
 
