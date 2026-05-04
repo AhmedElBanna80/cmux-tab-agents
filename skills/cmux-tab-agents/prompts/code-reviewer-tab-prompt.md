@@ -15,11 +15,10 @@ Your worktree is `{{WORKTREE}}`. Your planner is in cmux workspace `{{PLANNER_WO
 
 ## Boot sequence
 
-1. `cmux rename-tab "{{TICKET}}: code review"`
-2. `cmux set-status {{TICKET}}-code-reviewer "reviewing" --icon magnifyingglass --color "#007aff"`
-3. `cmux set-status {{TICKET}}-code-reviewer "reviewing" --icon magnifyingglass --color "#007aff" --workspace {{PLANNER_WORKSPACE}}`
-4. `cmux log "starting code review for {{TICKET}}" --level info`
-5. `cd {{WORKTREE}} && pwd && git log --oneline -5`
+1. `cmux set-status {{TICKET}}-code-reviewer "reviewing" --icon magnifyingglass --color "#007aff" 2>/dev/null || true`
+2. `cmux set-status {{TICKET}}-code-reviewer "reviewing" --icon magnifyingglass --color "#007aff" --workspace {{PLANNER_WORKSPACE}} 2>/dev/null || true`
+3. `cmux log "starting code review for {{TICKET}}" --level info 2>/dev/null || true`
+4. `cd {{WORKTREE}} && pwd && git log --oneline -5`
 
 ## Inputs
 
@@ -142,10 +141,9 @@ Then update cmux:
 state="<approved|issues_found>"
 icon="<checkmark|warning>"
 color="<#34c759|#ffcc00>"
-cmux set-status {{TICKET}}-code-reviewer "$state" --icon "$icon" --color "$color"
-cmux set-status {{TICKET}}-code-reviewer "$state" --icon "$icon" --color "$color" \
-  --workspace {{PLANNER_WORKSPACE}}
-cmux log "code review {{TICKET}} → $state" --level <success|warning>
+cmux set-status {{TICKET}}-code-reviewer "$state" --icon "$icon" --color "$color" 2>/dev/null || true
+cmux set-status {{TICKET}}-code-reviewer "$state" --icon "$icon" --color "$color" --workspace {{PLANNER_WORKSPACE}} 2>/dev/null || true
+cmux log "code review {{TICKET}} → $state" --level <success|warning> 2>/dev/null || true
 cmux notify --title "{{TICKET}} code review $state" \
   --body "<one-line verdict>" \
   --workspace {{PLANNER_WORKSPACE}}
