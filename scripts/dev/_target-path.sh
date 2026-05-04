@@ -9,10 +9,9 @@
 # When executed directly, prints the computed target path. When sourced, the
 # functions become available without enabling strict mode in the caller.
 
-compute_target_path() {
-  local repo_root manifest name version cache_root marketplace
-  local matches=()
-  local d
+# Private. Echoes "<name> <version>" or returns 1 with a message on stderr.
+_read_manifest_fields() {
+  local repo_root manifest name version
 
   if ! repo_root=$(git rev-parse --show-toplevel 2>/dev/null); then
     echo "error: not inside a git repository" >&2
@@ -37,6 +36,18 @@ compute_target_path() {
     echo "error: could not read name/version from ${manifest}" >&2
     return 1
   fi
+
+  echo "$name $version"
+}
+
+compute_target_path() {
+  local fields name version cache_root marketplace
+  local matches=()
+  local d
+
+  fields=$(_read_manifest_fields) || return 1
+  name=${fields%% *}
+  version=${fields##* }
 
   cache_root="${HOME}/.claude/plugins/cache"
 
@@ -63,29 +74,10 @@ compute_target_path() {
 }
 
 compute_legacy_target_path() {
-  local repo_root manifest name
+  local fields name
 
-  if ! repo_root=$(git rev-parse --show-toplevel 2>/dev/null); then
-    echo "error: not inside a git repository" >&2
-    return 1
-  fi
-
-  manifest="${repo_root}/.claude-plugin/plugin.json"
-  if [[ ! -f "$manifest" ]]; then
-    echo "error: ${manifest} not found" >&2
-    return 1
-  fi
-
-  if ! command -v jq >/dev/null 2>&1; then
-    echo "error: jq is required (install via: brew install jq)" >&2
-    return 1
-  fi
-
-  name=$(jq -r '.name' "$manifest")
-  if [[ -z "$name" || "$name" == "null" ]]; then
-    echo "error: could not read name from ${manifest}" >&2
-    return 1
-  fi
+  fields=$(_read_manifest_fields) || return 1
+  name=${fields%% *}
 
   echo "${HOME}/.claude/skills/${name}"
 }
