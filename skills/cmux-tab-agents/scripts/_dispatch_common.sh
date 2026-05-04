@@ -17,6 +17,7 @@ Usage: $0 --ticket TICKET --title TITLE --slug SLUG \\
           [--planner-workspace REF] \\
           [--planner-surface REF] \\
           [--model MODEL_ID] \\
+          [--effort LEVEL] \\
           [--implementer-sha SHA] \\
           [--feedback-from-previous-review TEXT_OR_PATH]
 EOF
@@ -53,9 +54,57 @@ with open(dst, "w", encoding="utf-8") as f:
 PY
 }
 
+# read_toml_value <file> <key> — extract a TOML top-level key value.
+# Assumes flat structure: key = "value" or key = value (no nested tables, no multi-line).
+# Echoes the value (quotes stripped), or empty string if not found or file missing.
+read_toml_value() {
+  local file="$1" key="$2"
+  [[ -r "$file" ]] || return
+  grep -E "^$key\s*=" "$file" 2>/dev/null | sed -e 's/.*=\s*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' | head -1
+}
+
+# resolve_setting <name> <cli_value> <repo_root> — resolve a setting (MODEL or EFFORT).
+# Resolution order (first match wins):
+# 1. CLI flag value (if non-empty)
+# 2. Env var CMUX_TAB_AGENTS_DEFAULT_<NAME>
+# 3. Per-repo TOML: <repo_root>/.claude/cmux-tab-agents.toml key default_<name_lower>
+# 4. User-global TOML: ~/.claude/cmux-tab-agents.toml, same key
+# 5. Empty (claude uses its own default)
+resolve_setting() {
+  local name="$1" cli_value="$2" repo_root="$3"
+  local env_var="CMUX_TAB_AGENTS_DEFAULT_${name}"
+  local toml_key="default_$(echo "$name" | tr '[:upper:]' '[:lower:]')"
+  local result=""
+
+  # Step 1: CLI value
+  if [[ -n "$cli_value" ]]; then
+    echo "$cli_value"
+    return
+  fi
+
+  # Step 2: Env var
+  if [[ -n "${!env_var:-}" ]]; then
+    echo "${!env_var}"
+    return
+  fi
+
+  # Step 3: Per-repo TOML (repo_root must be provided)
+  if [[ -n "$repo_root" ]]; then
+    result=$(read_toml_value "$repo_root/.claude/cmux-tab-agents.toml" "$toml_key")
+    [[ -n "$result" ]] && { echo "$result"; return; }
+  fi
+
+  # Step 4: User-global TOML
+  result=$(read_toml_value "$HOME/.claude/cmux-tab-agents.toml" "$toml_key")
+  [[ -n "$result" ]] && { echo "$result"; return; }
+
+  # Step 5: Unset (empty)
+  echo ""
+}
+
 dispatch_main() {
   local TICKET="" TITLE="" SLUG="" TASK_TEXT="" TASK_FILE=""
-  local TYPE="" PLANNER_WS="" PLANNER_SURFACE="" MODEL="" IMPL_SHA="" FEEDBACK=""
+  local TYPE="" PLANNER_WS="" PLANNER_SURFACE="" MODEL="" EFFORT="" IMPL_SHA="" FEEDBACK=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -68,6 +117,7 @@ dispatch_main() {
       --planner-workspace)   PLANNER_WS="$2"; shift 2 ;;
       --planner-surface)     PLANNER_SURFACE="$2"; shift 2 ;;
       --model)               MODEL="$2"; shift 2 ;;
+      --effort)              EFFORT="$2"; shift 2 ;;
       --implementer-sha)     IMPL_SHA="$2"; shift 2 ;;
       --feedback-from-previous-review) FEEDBACK="$2"; shift 2 ;;
       -h|--help)             usage ;;
@@ -184,14 +234,23 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
   # The shell prompt accepts \n as Enter (so cd && claude runs immediately);
   # we fire `send-key enter` separately as a safety net for terminals where
   # the trailing newline is interpreted differently.
-  local model_flag=""
-  [[ -n "$MODEL" ]] && model_flag=" --model $MODEL"
+  #
+  # Resolve model and effort through the layered defaults (CLI > env > per-repo TOML > user-global TOML).
+  # Use current directory (dispatcher's repo) for per-repo TOML lookup.
+  local resolved_model resolved_effort
+  resolved_model=$(resolve_setting MODEL "$MODEL" ".")
+  resolved_effort=$(resolve_setting EFFORT "$EFFORT" ".")
+
+  local model_flag="" effort_flag=""
+  [[ -n "$resolved_model" ]] && model_flag=" --model $resolved_model"
+  [[ -n "$resolved_effort" ]] && effort_flag=" --effort $resolved_effort"
+
   # Pass an initial user message as the trailing positional arg to claude so
   # the agent fires immediately on boot instead of idling on the welcome
   # screen. Avoids the fragile backgrounded `( sleep N; cmux send ... ) &`
   # nudge that gets SIGHUP'd when the dispatcher exits.
   cmux send --surface "$SURFACE" \
-    "cd $WT && claude --dangerously-skip-permissions${model_flag} --append-system-prompt \"\$(cat $RENDERED)\" \"Begin executing the task per the system prompt.\""$'\n'
+    "cd $WT && claude --dangerously-skip-permissions${model_flag}${effort_flag} --append-system-prompt \"\$(cat $RENDERED)\" \"Begin executing the task per the system prompt.\""$'\n'
   cmux send-key --surface "$SURFACE" enter >/dev/null 2>&1 || true
 
   # 5. Set initial dispatch pill on the planner's workspace.

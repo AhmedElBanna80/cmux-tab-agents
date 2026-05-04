@@ -18,6 +18,8 @@ Use this skill instead of upstream `superpowers:subagent-driven-development` whe
 
 If `$CMUX_SURFACE_ID` is empty, fall back to upstream `superpowers:subagent-driven-development`. The two skills have identical semantics, so the fallback path is safe.
 
+For first-time setup, run `/cmux-tab-agents:setup` to configure your default Claude model and thinking effort.
+
 ## What "the planner" means in this skill
 
 You are the planner. Your job is to:
