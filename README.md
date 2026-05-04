@@ -179,6 +179,10 @@ Every dispatched tab-agent is bound by these (verbatim from the seed prompts):
 - **`git commit --no-verify`, `--no-gpg-sign`, `HUSKY=0`, hook-config overrides, and creative hook-shaped escape hatches are FORBIDDEN.** If a hook fails, fix the underlying code or escalate as `BLOCKED`. Do not commit.
 - Stay inside the worktree. Never edit files in the parent repo. Never push, merge, or open PRs — that's the planner's call.
 
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for how to propose changes, the TDD requirements, the no-hook-bypass rule, and the conventional commit style.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
