@@ -15,12 +15,11 @@ All three dispatch scripts (`dispatch-implementer.sh`, `dispatch-spec-reviewer.s
 | `--type TYPE`                      | no       | `feat` (or per-repo `branch_type_default`)       | Branch prefix: `feat`, `fix`, `chore`, etc. |
 | `--planner-workspace REF`          | no       | `$CMUX_WORKSPACE_ID` (the dispatcher's workspace)| Where status pills are mirrored. |
 | `--planner-surface REF`            | no       | dispatcher's own `surface_ref` from `cmux identify` | Where tab-agents push their one-line terminal-state message (see "How tab-agents talk to you" in `SKILL.md`). Pass `""` to disable the push channel and fall back to pure polling. |
-| `--model MODEL_ID`                 | no       | (resolved via env / config / unset — see "Layered defaults" below) | Override the Claude model the tab-agent's `claude` process runs with. Appended verbatim to the boot command (`claude --model <id> ...`). Use cheaper/faster models for mechanical tasks (`claude-haiku-4-5-20251001`) and stronger models for ambiguous design work, mirroring upstream `superpowers:subagent-driven-development`'s Model Selection. |
-| `--effort LEVEL`                   | no       | (resolved via env / config / unset — see "Layered defaults" below) | Thinking-effort level: `low`, `medium`, `high`, `xhigh`, or `max`. Appended verbatim to the boot command (`claude --effort <level> ...`). Higher levels = more reasoning steps and higher cost. |
+| `--model MODEL_ID`                 | no       | (omit — use user's default)                      | Override the Claude model the tab-agent's `claude` process runs with. Append-as-is to the boot command (`claude --model <id> ...`). Use cheaper/faster models for mechanical tasks (`claude-haiku-4-5-20251001`) and stronger models for ambiguous design work, mirroring upstream `superpowers:subagent-driven-development`'s Model Selection. |
 | `--implementer-sha SHA`            | no       | —                                                | Reviewer-only: the implementer's commit so the reviewer can scope its read. |
 | `--feedback-from-previous-review TEXT_OR_PATH` | no | — | On re-dispatch after a review found issues, pass the previous review's findings (literal text or readable file path). Wired into the seed prompt's "Feedback from a previous review" section. |
 
-All optional knobs (`--type`, `--planner-workspace`, `--planner-surface`, `--model`, `--effort`, `--implementer-sha`, `--feedback-from-previous-review`) are backward-compatible — omitting them yields the same behavior as before each was added.
+All four optional knobs (`--type`, `--planner-workspace`, `--planner-surface`, `--model`, `--implementer-sha`, `--feedback-from-previous-review`) are backward-compatible — omitting them yields the same behavior as before each was added.
 
 ### Examples
 
@@ -59,33 +58,6 @@ Disable the push channel entirely (pure polling):
   --planner-surface ""
 ```
 
-## Layered defaults for `--model` and `--effort`
-
-`v0.3.0+` resolves these two flags through a layered config so the planner doesn't have to repeat them on every dispatch. At dispatch time, the first non-empty value wins:
-
-1. **CLI flag** (`--model <id>` / `--effort <level>`).
-2. **Env var** (`CMUX_TAB_AGENTS_DEFAULT_MODEL` / `CMUX_TAB_AGENTS_DEFAULT_EFFORT`).
-3. **Per-repo TOML** at `<repo>/.claude/cmux-tab-agents.toml` — keys `default_model` / `default_effort`.
-4. **User-global TOML** at `~/.claude/cmux-tab-agents.toml` — same keys.
-5. **Unset** — the boot command omits the flag entirely; `claude` falls back to its own default.
-
-Example user-global config (`~/.claude/cmux-tab-agents.toml`):
-
-```toml
-default_model = "claude-sonnet-4-6"
-default_effort = "high"
-```
-
-Same keys are accepted in the per-repo file (`<repo>/.claude/cmux-tab-agents.toml`); per-repo wins over user-global on a key-by-key basis (you can set `default_model` per-repo while inheriting `default_effort` from user-global).
-
-The user-global file is sandboxed to your user account; the per-repo file may or may not be checked in (your call). If you commit it, every collaborator inherits the defaults; if you don't, add `.claude/cmux-tab-agents.toml` to `.gitignore`.
-
-For an interactive way to set these up, run `/cmux-tab-agents:setup` — it asks the questions, writes the file, and echoes back the resolved settings.
-
-### Valid values for `default_effort`
-
-`low`, `medium`, `high`, `xhigh`, `max`. Anything else causes dispatch to abort with a clear error pointing at the offending source.
-
 ## Env var: `CMUX_TAB_AGENTS_WORKTREE_BASE`
 
 Sets the base directory for all worktrees, globally. The actual worktree path becomes:
@@ -111,14 +83,6 @@ Optional. Create this file at the root of any repo where the defaults aren't rig
 ### Supported keys
 
 ```toml
-# Default Claude model for spawned tab-agents. Used when --model is omitted
-# on the cli AND CMUX_TAB_AGENTS_DEFAULT_MODEL is unset. See "Layered defaults".
-default_model = "claude-sonnet-4-6"
-
-# Default thinking-effort level for spawned tab-agents. low|medium|high|xhigh|max.
-# Used when --effort is omitted AND CMUX_TAB_AGENTS_DEFAULT_EFFORT is unset.
-default_effort = "high"
-
 # Worktree base directory. Relative paths are resolved against the repo root.
 # Absolute paths are used as-is.
 worktree_base = "../worktrees"
@@ -133,8 +97,6 @@ setup_command = "make bootstrap"
 # Validate the --ticket arg against this regex. Default: any non-empty string.
 ticket_pattern = "^[A-Z]+-[0-9]+(-[0-9]+)?$"
 ```
-
-The same file format is used for the user-global config at `~/.claude/cmux-tab-agents.toml`, but only `default_model` and `default_effort` are honored there (the others are repo-scoped by nature). Per-repo wins over user-global on a key-by-key basis.
 
 ### Resolution priority
 
