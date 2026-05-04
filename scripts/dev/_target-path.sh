@@ -3,6 +3,7 @@
 #
 # Defines:
 #   compute_target_path        - prints the absolute plugin-cache target path
+#   compute_legacy_target_path - prints the absolute legacy ~/.claude/skills/ target path
 #   resolve_symlink_target     - prints the absolute target a symlink points at
 #
 # When executed directly, prints the computed target path. When sourced, the
@@ -59,6 +60,34 @@ compute_target_path() {
   fi
 
   echo "${cache_root}/${marketplace}/${name}/${version}"
+}
+
+compute_legacy_target_path() {
+  local repo_root manifest name
+
+  if ! repo_root=$(git rev-parse --show-toplevel 2>/dev/null); then
+    echo "error: not inside a git repository" >&2
+    return 1
+  fi
+
+  manifest="${repo_root}/.claude-plugin/plugin.json"
+  if [[ ! -f "$manifest" ]]; then
+    echo "error: ${manifest} not found" >&2
+    return 1
+  fi
+
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "error: jq is required (install via: brew install jq)" >&2
+    return 1
+  fi
+
+  name=$(jq -r '.name' "$manifest")
+  if [[ -z "$name" || "$name" == "null" ]]; then
+    echo "error: could not read name from ${manifest}" >&2
+    return 1
+  fi
+
+  echo "${HOME}/.claude/skills/${name}"
 }
 
 resolve_symlink_target() {
