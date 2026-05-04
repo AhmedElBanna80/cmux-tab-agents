@@ -186,8 +186,12 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
   # the trailing newline is interpreted differently.
   local model_flag=""
   [[ -n "$MODEL" ]] && model_flag=" --model $MODEL"
+  # Pass an initial user message as the trailing positional arg to claude so
+  # the agent fires immediately on boot instead of idling on the welcome
+  # screen. Avoids the fragile backgrounded `( sleep N; cmux send ... ) &`
+  # nudge that gets SIGHUP'd when the dispatcher exits.
   cmux send --surface "$SURFACE" \
-    "cd $WT && claude --dangerously-skip-permissions${model_flag} --append-system-prompt \"\$(cat $RENDERED)\""$'\n'
+    "cd $WT && claude --dangerously-skip-permissions${model_flag} --append-system-prompt \"\$(cat $RENDERED)\" \"Begin executing the task per the system prompt.\""$'\n'
   cmux send-key --surface "$SURFACE" enter >/dev/null 2>&1 || true
 
   # 5. Set initial dispatch pill on the planner's workspace.
