@@ -104,6 +104,10 @@ Every dispatched tab-agent is bound by these (verbatim from the seed prompts):
 - **`git commit --no-verify`, `--no-gpg-sign`, `HUSKY=0`, hook-config overrides, and creative hook-shaped escape hatches are FORBIDDEN.** If a hook fails, fix the underlying code or escalate as `BLOCKED`. Do not commit.
 - Stay inside the worktree. Never edit files in the parent repo. Never push, merge, or open PRs — that's the planner's call.
 
+## Development
+
+Working on the plugin itself? [`CONTRIBUTING.md`](CONTRIBUTING.md) covers the symlink trick (`./scripts/dev-link.sh` makes Claude Code load directly from your worktree, no `/plugin update` cycle), the daily edit → `/reload-plugins` → test loop, the lockstep version-bump script, and `claude --plugin-dir .` for sandbox testing.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
