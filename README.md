@@ -82,6 +82,69 @@ The planner will:
 
 You can run all of step 1 in parallel — different worktrees, no conflicts.
 
+## Local development
+
+Iterate on this plugin in-place — no marketplace re-install loop.
+
+### Prerequisites
+
+- `bash` 3.2+ (macOS default works)
+- `jq` — required by link/unlink/status (`brew install jq`)
+- `python3` — required by `render-prompt.sh` and the template lint in `lint.sh` (preinstalled on macOS)
+- `shellcheck` — recommended, optional (`brew install shellcheck`); `make lint` warns and skips the shell-lint sub-check when it isn't installed
+- `make` — entry point (preinstalled on macOS via the Xcode CLT)
+
+### The loop
+
+1. Link this checkout into the plugin cache:
+
+   ```sh
+   make link
+   ```
+
+   This symlinks the checkout into `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/`. If a real install is already there, it's renamed to `<target>.bak-<timestamp>` so you can restore it later.
+
+2. Edit files under `skills/cmux-tab-agents/`. Changes are live — no re-install needed.
+
+3. Lint:
+
+   ```sh
+   make lint
+   ```
+
+   Runs shellcheck (if installed) + jq JSON validation + the prompt-template lint (catches stray `{{TYPO}}` placeholders).
+
+4. Preview the rendered implementer prompt with sample values:
+
+   ```sh
+   make preview
+   ```
+
+   For other phases, call the renderer directly:
+
+   ```sh
+   scripts/dev/render-prompt.sh spec-reviewer --values TICKET=TEST-1,TASK="dummy"
+   scripts/dev/render-prompt.sh code-reviewer
+   ```
+
+5. In a real cmux session, exercise `/cmux-tab-agents` against a sample ticket to test the live dispatch end-to-end.
+
+6. Unlink when done:
+
+   ```sh
+   make unlink
+   ```
+
+   Removes the symlink. If a `.bak-<timestamp>` exists, the script prints the manual `mv` command to restore it. To switch back to the published version: `/plugin install cmux-tab-agents@cmux-tab-agents`.
+
+`make status` shows the current state at any time — `linked` (and to where), `installed (not linked)`, or `not installed`.
+
+### What the tooling does NOT cover
+
+- No end-to-end smoke test that actually dispatches a tab-agent (would require a real cmux session and a throwaway repo). Run `/cmux-tab-agents` manually.
+- No CI on PRs — linting is local-only.
+- The `cmux <subcmd>` calls inside the dispatch scripts are not mocked.
+
 ## How tab-agents report back
 
 Three out-of-band channels per phase:
