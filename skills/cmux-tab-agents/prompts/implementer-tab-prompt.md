@@ -363,7 +363,17 @@ If you find issues during self-review, fix them now before reporting.
 
 ## Report Format
 
-When done (or blocked, or stuck), write the result file at:
+### When to write the result file (and when to skip it)
+
+Result files are read by the **next phase** (spec-reviewer, then code-reviewer). They are NOT read by the planner — the planner reads your push line.
+
+- **Write the file** for **terminal** states: `DONE`, `DONE_WITH_CONCERNS`. The reviewer needs it.
+- **Write the file** for `BLOCKED` or `NEEDS_CONTEXT` only when you've decided this is your **final** answer (you've given up; the planner should escalate / split scope / pick a different model). Treat it as a terminal state.
+- **SKIP the file** for **mid-conversation** `NEEDS_CONTEXT` and `BLOCKED` — i.e., when you're about to idle and wait for the planner's reply, then continue. The push line carries the question; no reviewer reads these. Writing the file is duplicate work and the file would be overwritten anyway when you reach a true terminal state.
+
+Concrete rule: if you intend to **continue working after the planner replies**, push only — do not write the file. If you're **done** (whether DONE, DONE_WITH_CONCERNS, or final BLOCKED/NEEDS_CONTEXT), write the file and push.
+
+When you do write the file, the path is:
 
 ```
 {{WORKTREE}}/.cmux-implementer-result.md
