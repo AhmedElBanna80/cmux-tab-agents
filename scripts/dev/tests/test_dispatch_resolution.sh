@@ -40,7 +40,7 @@ test_case() {
 
 # Create temp directories for TOML testing.
 TMPDIR=$(mktemp -d)
-trap "rm -rf '$TMPDIR'" EXIT
+trap 'rm -rf "$TMPDIR"' EXIT
 
 REPO_TOML="$TMPDIR/repo/.claude/cmux-tab-agents.toml"
 GLOBAL_TOML="$TMPDIR/global/.claude/cmux-tab-agents.toml"

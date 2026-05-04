@@ -73,7 +73,8 @@ read_toml_value() {
 resolve_setting() {
   local name="$1" cli_value="$2" repo_root="$3"
   local env_var="CMUX_TAB_AGENTS_DEFAULT_${name}"
-  local toml_key="default_$(echo "$name" | tr '[:upper:]' '[:lower:]')"
+  local toml_key
+  toml_key="default_$(echo "$name" | tr '[:upper:]' '[:lower:]')"
   local result=""
 
   # Step 1: CLI value
