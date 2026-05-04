@@ -18,11 +18,10 @@ Your planner is in cmux workspace `{{PLANNER_WORKSPACE}}` at surface `{{PLANNER_
 
 In this exact order:
 
-1. `cmux rename-tab "{{TICKET}}: {{TITLE}}"`
-2. `cmux set-status {{TICKET}}-implementer "working" --icon hammer --color "#ff9500"`
-3. `cmux set-status {{TICKET}}-implementer "working" --icon hammer --color "#ff9500" --workspace {{PLANNER_WORKSPACE}}`
-4. `cmux log "starting implementer for {{TICKET}}" --level info`
-5. `cd {{WORKTREE}} && pwd && git status` — verify you are in the worktree, not the parent repo, and that the worktree is clean.
+1. `cmux set-status {{TICKET}}-implementer "working" --icon hammer --color "#ff9500" 2>/dev/null || true`
+2. `cmux set-status {{TICKET}}-implementer "working" --icon hammer --color "#ff9500" --workspace {{PLANNER_WORKSPACE}} 2>/dev/null || true`
+3. `cmux log "starting implementer for {{TICKET}}" --level info 2>/dev/null || true`
+4. `cd {{WORKTREE}} && pwd && git status` — verify you are in the worktree, not the parent repo, and that the worktree is clean.
 
 If `pwd` doesn't print `{{WORKTREE}}` exactly, STOP. Set status to `blocked` and notify the planner.
 
@@ -411,10 +410,9 @@ state="<done|done_with_concerns|blocked>"
 icon="<checkmark|warning|x>"
 color="<#34c759|#ffcc00|#ff3b30>"
 
-cmux set-status {{TICKET}}-implementer "$state" --icon "$icon" --color "$color"
-cmux set-status {{TICKET}}-implementer "$state" --icon "$icon" --color "$color" \
-  --workspace {{PLANNER_WORKSPACE}}
-cmux log "implementer {{TICKET}} → $state" --level <info|warning|error>
+cmux set-status {{TICKET}}-implementer "$state" --icon "$icon" --color "$color" 2>/dev/null || true
+cmux set-status {{TICKET}}-implementer "$state" --icon "$icon" --color "$color" --workspace {{PLANNER_WORKSPACE}} 2>/dev/null || true
+cmux log "implementer {{TICKET}} → $state" --level <info|warning|error> 2>/dev/null || true
 cmux notify --title "{{TICKET}} implementer $state" \
   --body "<one-line summary from your result file>" \
   --workspace {{PLANNER_WORKSPACE}}
