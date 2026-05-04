@@ -15,7 +15,8 @@ All three dispatch scripts (`dispatch-implementer.sh`, `dispatch-spec-reviewer.s
 | `--type TYPE`                      | no       | `feat` (or per-repo `branch_type_default`)       | Branch prefix: `feat`, `fix`, `chore`, etc. |
 | `--planner-workspace REF`          | no       | `$CMUX_WORKSPACE_ID` (the dispatcher's workspace)| Where status pills are mirrored. |
 | `--planner-surface REF`            | no       | dispatcher's own `surface_ref` from `cmux identify` | Where tab-agents push their one-line terminal-state message (see "How tab-agents talk to you" in `SKILL.md`). Pass `""` to disable the push channel and fall back to pure polling. |
-| `--model MODEL_ID`                 | no       | (omit — use user's default)                      | Override the Claude model the tab-agent's `claude` process runs with. Append-as-is to the boot command (`claude --model <id> ...`). Use cheaper/faster models for mechanical tasks (`claude-haiku-4-5-20251001`) and stronger models for ambiguous design work, mirroring upstream `superpowers:subagent-driven-development`'s Model Selection. |
+| `--model MODEL_ID`                 | no       | (resolved — see section below)                   | Override the Claude model the tab-agent's `claude` process runs with. Resolved via the layered defaults (CLI > env > per-repo TOML > user-global TOML > unset). Use cheaper/faster models for mechanical tasks (`claude-haiku-4-5-20251001`) and stronger models for ambiguous design work, mirroring upstream `superpowers:subagent-driven-development`'s Model Selection. |
+| `--effort LEVEL`                   | no       | (resolved — see section below)                   | Override the thinking effort level for tab-agents: `low`, `medium`, `high`, `xhigh`, `max`. Resolved via the layered defaults (CLI > env > per-repo TOML > user-global TOML > unset). Omit or set via config for default. |
 | `--implementer-sha SHA`            | no       | —                                                | Reviewer-only: the implementer's commit so the reviewer can scope its read. |
 | `--feedback-from-previous-review TEXT_OR_PATH` | no | — | On re-dispatch after a review found issues, pass the previous review's findings (literal text or readable file path). Wired into the seed prompt's "Feedback from a previous review" section. |
 
@@ -83,6 +84,15 @@ Optional. Create this file at the root of any repo where the defaults aren't rig
 ### Supported keys
 
 ```toml
+# Default Claude model for dispatches. Values: claude-opus-4-7, claude-sonnet-4-6,
+# claude-haiku-4-5-20251001, or any valid model ID. Resolved via the layered defaults
+# (CLI > env > per-repo TOML > user-global TOML > unset).
+default_model = "claude-sonnet-4-6"
+
+# Default effort level (thinking budget). Values: low, medium, high, xhigh, max.
+# Resolved via the layered defaults (CLI > env > per-repo TOML > user-global TOML > unset).
+default_effort = "high"
+
 # Worktree base directory. Relative paths are resolved against the repo root.
 # Absolute paths are used as-is.
 worktree_base = "../worktrees"
@@ -98,7 +108,34 @@ setup_command = "make bootstrap"
 ticket_pattern = "^[A-Z]+-[0-9]+(-[0-9]+)?$"
 ```
 
-### Resolution priority
+## User-global config: `~/.claude/cmux-tab-agents.toml`
+
+Optional. Create this file at `~/.claude/cmux-tab-agents.toml` to set personal defaults for all repos.
+
+Supports the same flat keys as per-repo TOML:
+
+```toml
+default_model = "claude-sonnet-4-6"
+default_effort = "high"
+worktree_base = "/tmp/cmux-worktrees"
+branch_type_default = "feat"
+```
+
+Use `/cmux-tab-agents:setup` (interactive configuration wizard) to create/edit this file.
+
+## Resolution order for defaults
+
+### Model and effort resolution (dispatch time)
+
+When dispatch is called, `--model` and `--effort` are resolved in this order (first match wins):
+
+1. CLI flag (`--model MODEL` / `--effort LEVEL`)
+2. Env var (`CMUX_TAB_AGENTS_DEFAULT_MODEL` / `CMUX_TAB_AGENTS_DEFAULT_EFFORT`)
+3. Per-repo TOML key: `<repo>/.claude/cmux-tab-agents.toml` with key `default_model` / `default_effort`
+4. User-global TOML key: `~/.claude/cmux-tab-agents.toml`, same keys
+5. Unset (Claude uses its own default)
+
+### Worktree base resolution
 
 `ensure-worktree.sh` resolves the worktree base in this order (first match wins):
 

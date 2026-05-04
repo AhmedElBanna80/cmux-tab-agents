@@ -119,6 +119,20 @@ Implications:
 
 Override mechanism: same as v0.2.0 (`--planner-surface ""` on dispatch disables the channel both ways; the agent won't push and the planner has nowhere documented to reply, falling back to pure polling).
 
+### 14. User-configurable model/effort defaults + `/cmux-tab-agents:setup` (v0.3.0, additive)
+
+v0.2.0 introduced `--model <id>` for per-task model selection. v0.3.0 layers on user and project defaults so model (and effort) selection doesn't require CLI flag noise.
+
+| Feature | Where |
+|---|---|
+| Resolution order | CLI `--model` / `--effort` > env var `CMUX_TAB_AGENTS_DEFAULT_MODEL` / `CMUX_TAB_AGENTS_DEFAULT_EFFORT` > per-repo `.claude/cmux-tab-agents.toml` keys `default_model` / `default_effort` > user-global `~/.claude/cmux-tab-agents.toml`, same keys > unset |
+| Interactive setup | `/cmux-tab-agents:setup` slash command (walks user through model/effort choice, save location, and optional per-repo settings like `worktree_base`) |
+| TOML keys | `default_model` (e.g. `claude-sonnet-4-6`) and `default_effort` (e.g. `high`, one of `low` / `medium` / `high` / `xhigh` / `max`) |
+| Backward-compatible | Yes — unset defaults yield same behavior as v0.2.0; only env vars or TOML change behavior |
+| Bootstrap integration | No script changes; resolution happens in `_dispatch_common.sh`'s `dispatch_main()`, and the resolved values are passed to claude boot as `--model <id> --effort <level>` (omitted if empty) |
+
+Rationale: per-task model selection keeps prompt discipline tight (TDD, verification, hook-bypass prohibition) while letting mechanical work use cheaper models and ambitious work use stronger ones — without flag clutter. Now defaults (via env or config) enable the same choice without flagging every dispatch.
+
 ## Re-syncing
 
 When upstream `superpowers/X.Y.Z` ships:
