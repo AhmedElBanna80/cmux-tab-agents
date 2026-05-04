@@ -118,6 +118,18 @@ Implications:
 
 Override mechanism: same as v0.2.0 (`--planner-surface ""` on dispatch disables the channel both ways; the agent won't push and the planner has nowhere documented to reply, falling back to pure polling).
 
+### 14. Layered defaults for `--model` and `--effort` plus interactive setup (v0.3.0, additive)
+
+Upstream `superpowers:subagent-driven-development` exposes model selection as a per-call `model` parameter on `Agent({...})`. There is no notion of effort, no notion of layered defaults, and no setup wizard — the controller picks a model on every dispatch. This fork adds:
+
+- `--effort <level>` flag on all three dispatch wrappers and `_dispatch_common.sh`. Mirrors `--model` syntactically and is appended verbatim to the boot command. Levels: `low | medium | high | xhigh | max`. Validated at parse time; an invalid value aborts dispatch.
+- Layered defaults for both `--model` and `--effort`, resolved at dispatch time in this order: CLI → env → per-repo TOML → user-global TOML → unset. Implemented in `_dispatch_common.sh::resolve_default`. The new env vars are `CMUX_TAB_AGENTS_DEFAULT_MODEL` and `CMUX_TAB_AGENTS_DEFAULT_EFFORT`. The two new TOML keys are `default_model` and `default_effort`, accepted in both `<repo>/.claude/cmux-tab-agents.toml` (existing per-repo file) and `~/.claude/cmux-tab-agents.toml` (new user-global file).
+- `/cmux-tab-agents:setup` slash command (`commands/setup.md`) that walks a new user through picking the two defaults and a save location via `AskUserQuestion`, then writes the TOML file (preserving any keys it doesn't own) and echoes back the resolution order.
+
+Why this isn't in upstream: upstream's `Agent({...})` is one synchronous call site per task, so adding cli-style flags doesn't fit. This fork's dispatch is shell scripts; layered defaults plus an interactive setup are the natural ergonomics shell users expect.
+
+Backward compatibility: omitting all of the new flags / env vars / TOML keys produces a boot command identical to v0.2.x — verified by `scripts/tests/test-dispatch-integration.sh` case 5.
+
 ## Re-syncing
 
 When upstream `superpowers/X.Y.Z` ships:
