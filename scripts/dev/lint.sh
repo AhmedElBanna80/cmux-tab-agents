@@ -15,7 +15,12 @@ else
   for dir in "$REPO_ROOT/skills/cmux-tab-agents/scripts" "$REPO_ROOT/scripts/dev"; do
     if [[ -d "$dir" ]]; then
       while IFS= read -r f; do
-        if ! shellcheck "$f"; then
+        # -x: follow source directives so cross-file usage is visible.
+        # --severity=warning: drop info-level noise like SC1091 when shellcheck
+        # can't resolve a relative source path from the invocation cwd.
+        # (SC2034 false positives are silenced via per-line disable directives
+        # on the wrappers' PHASE assignments.)
+        if ! shellcheck -x --severity=warning "$f"; then
           shellcheck_ok=0
         fi
       done < <(find "$dir" -name '*.sh' -type f 2>/dev/null | sort)

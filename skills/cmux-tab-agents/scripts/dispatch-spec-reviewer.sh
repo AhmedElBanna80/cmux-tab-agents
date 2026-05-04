@@ -6,6 +6,7 @@
 # Pass --implementer-sha so the reviewer can scope its read to that commit.
 
 set -euo pipefail
+# shellcheck disable=SC2034 # PHASE is consumed by sourced _dispatch_common.sh
 PHASE="spec-reviewer"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./_dispatch_common.sh
