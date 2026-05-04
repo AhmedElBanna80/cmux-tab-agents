@@ -9,6 +9,7 @@
 # is set on the planner's workspace.
 
 set -euo pipefail
+# shellcheck disable=SC2034 # PHASE is consumed by sourced _dispatch_common.sh
 PHASE="implementer"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./_dispatch_common.sh
