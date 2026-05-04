@@ -15,7 +15,11 @@ else
   for dir in "$REPO_ROOT/skills/cmux-tab-agents/scripts" "$REPO_ROOT/scripts/dev"; do
     if [[ -d "$dir" ]]; then
       while IFS= read -r f; do
-        if ! shellcheck "$f"; then
+        # --severity=warning: ignore info-level findings like SC1091
+        # ("Not following: source") and SC2034 ("appears unused") which
+        # are noise for our source-at-runtime + cross-script-shared-vars
+        # patterns. CI fails on warnings and errors only.
+        if ! shellcheck --severity=warning "$f"; then
           shellcheck_ok=0
         fi
       done < <(find "$dir" -name '*.sh' -type f 2>/dev/null | sort)
