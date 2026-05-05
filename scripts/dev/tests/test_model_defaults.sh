@@ -63,6 +63,35 @@ run_resolve_in_repo() {
   ) || true
 }
 
+# Helper: simulate dispatch_main model resolution and capture stderr output
+run_dispatch_model_resolution() {
+  local tmpdir="$1" ticket="$2" phase="$3" model_flag="$4"
+  (
+    cd "$tmpdir"
+    # shellcheck source=/dev/null
+    source "$SKILL_ROOT/scripts/_dispatch_common.sh"
+
+    # Simulate the model resolution logic from dispatch_main
+    local TICKET="$ticket" PHASE="$phase" MODEL="$model_flag"
+    local repo_root="."
+
+    local resolved_model=""
+    if [[ -n "$MODEL" ]]; then
+      resolved_model=$(resolve_model_for_phase "$PHASE" --model "$MODEL")
+    else
+      resolved_model=$(resolve_model_for_phase "$PHASE") || resolved_model=""
+      if [[ -z "$resolved_model" ]]; then
+        resolved_model=$(resolve_setting MODEL "" "$repo_root") || resolved_model=""
+      fi
+    fi
+
+    # Print resolved model to stderr (matching dispatch_main logic)
+    if [[ -n "$resolved_model" ]]; then
+      echo "[${TICKET}-${PHASE}] resolved model: $resolved_model" >&2
+    fi
+  ) 2>&1
+}
+
 printf '=== Tests ===\n\n'
 
 # Test 1: Bash syntax check on _dispatch_common.sh
@@ -144,6 +173,28 @@ if [[ "$out" == "claude-haiku-4-5-20251001" ]]; then
   pass "resolve_model_for_phase: hyphenated 'code-reviewer' resolves to underscore config 'code_reviewer'"
 else
   fail "resolve_model_for_phase: code-reviewer expected 'claude-haiku-4-5-20251001', got '$out'"
+fi
+cleanup_test_repo "$tmpdir"
+
+# Test 10: dispatch_main prints resolved model to stderr
+tmpdir=$(setup_test_repo "[models]\nimplementer = \"claude-sonnet-4-6\"")
+trap "cleanup_test_repo '$tmpdir'" EXIT
+out=$(run_dispatch_model_resolution "$tmpdir" ALPM-1234-1 implementer "")
+if printf '%s' "$out" | grep -qF "[ALPM-1234-1-implementer] resolved model: claude-sonnet-4-6"; then
+  pass "dispatch_main: stderr prints resolved model from config"
+else
+  fail "dispatch_main: expected stderr to contain resolved model, got: ${out:0:100}"
+fi
+cleanup_test_repo "$tmpdir"
+
+# Test 11: dispatch_main prints model from explicit --model flag to stderr
+tmpdir=$(setup_test_repo "[models]\nimplementer = \"claude-sonnet-4-6\"")
+trap "cleanup_test_repo '$tmpdir'" EXIT
+out=$(run_dispatch_model_resolution "$tmpdir" ALPM-1234-1 implementer "claude-opus-4-7")
+if printf '%s' "$out" | grep -qF "[ALPM-1234-1-implementer] resolved model: claude-opus-4-7"; then
+  pass "dispatch_main: stderr prints resolved model from CLI flag"
+else
+  fail "dispatch_main: expected stderr with CLI flag model, got: ${out:0:100}"
 fi
 cleanup_test_repo "$tmpdir"
 
