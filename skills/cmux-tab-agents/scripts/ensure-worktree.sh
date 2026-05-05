@@ -135,11 +135,14 @@ fi
 
 mkdir -p "$(dirname "$WT")"
 
-# Reuse branch if it already exists; otherwise create it off the default.
+# Fetch origin/main to ensure fresh base (not stale local main)
+git -C "$REPO" fetch origin main --quiet 2>/dev/null || true
+
+# Reuse branch if it already exists; otherwise create it off origin/main.
 if git -C "$REPO" show-ref --verify --quiet "refs/heads/$BRANCH"; then
   git -C "$REPO" worktree add "$WT" "$BRANCH" >&2
 else
-  git -C "$REPO" worktree add "$WT" -b "$BRANCH" "$DEFAULT_BRANCH" >&2
+  git -C "$REPO" worktree add "$WT" -b "$BRANCH" origin/main >&2
 fi
 
 # 5. Best-effort project bootstrap
