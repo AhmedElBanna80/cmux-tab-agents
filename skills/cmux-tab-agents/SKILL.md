@@ -25,12 +25,10 @@ You are the planner. Your job is to:
 
 1. Read the plan (or the user's intent) and extract atomic sub-tasks.
 2. For each sub-task, create a Jira sub-task (or any other tracker — the skill only needs a string ID like `ALPM-1234-1`) with `parentIssueKey` pointing at the parent story.
-3. For each sub-task, dispatch an implementer tab via `dispatch-implementer.sh`, optionally with `--finish-mode <mode>` to automate the finish step.
-4. Poll each implementer's result file. Decide based on its status (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED) what to do next.
-5. After implementer reports DONE, dispatch a spec-reviewer tab. Loop reviews with the implementer if issues are found.
-6. After spec-reviewer reports APPROVED, dispatch a code-quality-reviewer tab. Loop with the implementer if issues are found.
-7. Mark the sub-task done. Move to the next.
-8. When all sub-tasks are done: if you used `--finish-mode pr` or `--finish-mode merge`, the finish step is already done. Otherwise, optionally hand off to `superpowers:finishing-a-development-branch` (which you run yourself, not in a tab).
+3. For each sub-task, dispatch an implementer tab via `dispatch-implementer.sh`, optionally with `--finish-mode <mode>` and `--max-loop-iterations <n>` to configure the task-lead pipeline.
+4. Wait for the implementer's terminal push (one line to your input box). The implementer drives the entire spec + code review loop internally.
+5. Read `.cmux-task-result.md` to confirm DONE or handle BLOCKED. Mark the sub-task done. Move to the next.
+6. When all sub-tasks are done: if you used `--finish-mode pr` or `--finish-mode merge`, the finish step is already done. Otherwise, optionally hand off to `superpowers:finishing-a-development-branch` (which you run yourself, not in a tab).
 
 **You never edit code yourself.** If you catch yourself writing files in the project, stop and dispatch instead.
 
@@ -40,56 +38,52 @@ Delegation with isolated context enables focus and fast iteration. Full wording:
 
 ## The per-task pipeline
 
+The implementer is the **task lead** — it drives the entire review loop without planner involvement during iteration. The planner dispatches one tab and receives one push per sub-task.
+
 ```
 For each sub-task (parallelizable across tasks):
   └── ensure-worktree.sh  →  worktree at <discovered base>/<TICKET>/<repo-name>
        on branch <type>/<TICKET>/<slug>  (default type: feat)
         │
-        ├── dispatch-implementer.sh      → cmux tab #1, runs claude with implementer-tab-prompt seed
-        │     │  TDD red-green-refactor, never --no-verify
-        │     │  writes .cmux-implementer-result.md, idles
-        │     ↓
-        │   Planner polls .cmux-implementer-result.md
-        │     DONE                → continue
-        │     DONE_WITH_CONCERNS  → read concerns, decide
-        │     NEEDS_CONTEXT       → re-dispatch implementer with --feedback-from-previous-review
-        │     BLOCKED             → escalate
-        │
-        ├── dispatch-spec-reviewer.sh    → cmux tab #2, same worktree, spec-reviewer-tab-prompt seed
-        │     │  reads code (NOT trusting implementer's report), re-runs verification
-        │     │  writes .cmux-spec-reviewer-result.md, idles
-        │     ↓
-        │   Planner polls .cmux-spec-reviewer-result.md
-        │     APPROVED      → continue
-        │     ISSUES_FOUND  → re-dispatch implementer with --feedback-from-previous-review,
-        │                     loop back to spec review
-        │
-        └── dispatch-code-reviewer.sh    → cmux tab #3, same worktree, code-reviewer-tab-prompt seed
-              │  reviews code quality, TDD discipline, hooks; re-runs verification
-              │  writes .cmux-code-reviewer-result.md, idles
-              ↓
-            Planner polls .cmux-code-reviewer-result.md
-              APPROVED      → mark sub-task done, move to next
-              ISSUES_FOUND  → re-dispatch implementer with --feedback-from-previous-review,
-                              loop back through spec review then code review
+        └── dispatch-implementer.sh  →  cmux tab #1, implementer-tab-prompt seed
+              │  TDD red-green-refactor, never --no-verify
+              │  After DONE, implementer spawns reviewers itself (task-lead pipeline):
+              │
+              │    dispatch-spec-reviewer.sh  (--lead-surface = implementer's own surface)
+              │      APPROVED      → implementer spawns code-reviewer
+              │      ISSUES_FOUND  → implementer fixes, re-dispatches spec-reviewer
+              │                      circuit-breaker: same issue twice or max iterations → BLOCKED
+              │
+              │    dispatch-code-reviewer.sh  (--lead-surface = implementer's own surface)
+              │      APPROVED      → implementer runs finish-task.sh, writes .cmux-task-result.md
+              │      ISSUES_FOUND  → implementer fixes, re-dispatches code-reviewer
+              │                      circuit-breaker: same issue twice or max iterations → BLOCKED
+              │
+              └── Implementer pushes ONE line to planner on terminal state:
+                    DONE:    both reviewers approved, finish-task ran
+                    BLOCKED: circuit-breaker fired or unrecoverable error
+```
+
+The planner reads `.cmux-task-result.md` (one file per sub-task, not three) to determine next steps.
+
+**Note:** `dispatch-spec-reviewer.sh` and `dispatch-code-reviewer.sh` still exist for manual planner use (e.g., re-running a review independently or when bypassing the task-lead loop). They are not called by the planner in the normal pipeline.
 
 ### Optional: Skip code-reviewer phase on trivial diffs
 
-After spec-reviewer reports `APPROVED`, the planner **MAY** skip the code-reviewer phase if the diff is trivial. See `references/skip-heuristics.md` for the heuristic (≤30 lines, test/spec/markdown/changelog files only, spec-reviewer has no concerns). Use the helper script `scripts/should-skip-code-review.sh` to make the decision deterministic:
+The implementer (as task lead) MAY skip the code-reviewer phase if the diff is trivial. See `references/skip-heuristics.md` for the heuristic (≤30 lines, test/spec/markdown/changelog files only, spec-reviewer has no concerns). Use the helper script `scripts/should-skip-code-review.sh` to make the decision deterministic:
 
 ```bash
 if ~/.claude/skills/cmux-tab-agents/scripts/should-skip-code-review.sh \
    --worktree "$WORKTREE" --implementer-sha "$(git -C $WORKTREE rev-parse HEAD)"; then
-  # → safe to skip; mark sub-task done without dispatching code-reviewer
+  # → safe to skip; write .cmux-task-result.md and push DONE to planner
 else
   # → dispatch code-reviewer as usual
 fi
 ```
 
 **Important:** Skipping is always optional. This is an optimization for small, obviously safe changes. When in doubt, run code-reviewer.
-```
 
-Three sequential tabs in the same worktree. Only one runs at a time (implementer first; reviewers run on the implementer's committed state). Tabs from prior phases stay open for inspection.
+The implementer review loop without planner involvement during iteration reduces planner context bloat and preserves the implementer's codebase context across fix rounds.
 
 ## Cross-task parallelism (override of upstream rule)
 

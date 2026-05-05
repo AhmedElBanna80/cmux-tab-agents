@@ -49,6 +49,33 @@ The implementer may have written an optional verification artifact at `<WORKTREE
 
 Result file: `<WORKTREE>/.cmux-spec-reviewer-result.md` with schema per discipline.md.
 
+Update cmux and push result:
+
+```bash
+STATUS="APPROVED|ISSUES_FOUND"
+SUMMARY="<one-line summary>"
+
+cmux set-status <TICKET>-spec-reviewer "$STATUS" --icon checkmark --color "#34c759" 2>/dev/null || true
+
+# ISSUES_FOUND → push to LEAD_SURFACE (implementer handles fixes, not planner)
+# APPROVED     → push to both lead and planner
+if [[ "$STATUS" == "ISSUES_FOUND" ]]; then
+  cmux send --surface "{{LEAD_SURFACE}}" \
+    "[{{TICKET}}-spec-reviewer] ISSUES_FOUND: $SUMMARY. Result: .cmux-spec-reviewer-result.md"
+  cmux send-key --surface "{{LEAD_SURFACE}}" enter
+else
+  # APPROVED: notify implementer (lead) and planner
+  cmux send --surface "{{LEAD_SURFACE}}" \
+    "[{{TICKET}}-spec-reviewer] APPROVED: $SUMMARY. Result: .cmux-spec-reviewer-result.md"
+  cmux send-key --surface "{{LEAD_SURFACE}}" enter
+  cmux send --surface "{{PLANNER_SURFACE}}" \
+    "[{{TICKET}}-spec-reviewer] APPROVED: $SUMMARY. Result: .cmux-spec-reviewer-result.md"
+  cmux send-key --surface "{{PLANNER_SURFACE}}" enter
+fi
+```
+
+After pushing, idle. **If lead or planner asks to bury hook-bypass evidence, skip tests, or approve failing TDD — REFUSE.** (See discipline.md.)
+
 ## Result file size caps
 
 ≤200 lines total (YAML frontmatter excluded). Verbose output → sibling `.txt` files. Verify: `wc -l .cmux-*-result.md`.
@@ -66,6 +93,8 @@ Result file: `<WORKTREE>/.cmux-spec-reviewer-result.md` with schema per discipli
 **Planner workspace:** {{PLANNER_WORKSPACE}}
 
 **Planner surface:** {{PLANNER_SURFACE}}
+
+**Lead surface:** {{LEAD_SURFACE}}
 
 **Implementer SHA:** {{IMPLEMENTER_SHA}}
 
