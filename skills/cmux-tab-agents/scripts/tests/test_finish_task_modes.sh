@@ -99,7 +99,7 @@ trap 'rm -rf "$pr_test_tmpdir"' EXIT
 cd "$pr_test_tmpdir" || exit 1
 
 # Initialize git repo
-git init -q .
+git init -q -b main .
 git config user.email "test@example.com"
 git config user.name "Test User"
 git remote add origin https://github.com/test/repo.git
@@ -132,7 +132,7 @@ trap 'rm -rf "$merge_test_tmpdir"' EXIT
 main_repo="$merge_test_tmpdir/main"
 mkdir -p "$main_repo"
 cd "$main_repo" || exit 1
-git init -q .
+git init -q -b main .
 git config user.email "test@example.com"
 git config user.name "Test User"
 touch init.txt

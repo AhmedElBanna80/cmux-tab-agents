@@ -16,8 +16,6 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 # Config (from environment or defaults)
 FINISH_MODE="${1:-keep}"
 WORKTREE="${2:-.}"
