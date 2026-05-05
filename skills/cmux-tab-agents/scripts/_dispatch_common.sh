@@ -25,6 +25,26 @@ EOF
   exit 1
 }
 
+# resolve_model_for_phase <phase> <repo_root>
+# Resolves the model for a given phase from repo config [models].<phase> section.
+# Returns the model ID if found, empty otherwise.
+resolve_model_for_phase() {
+  local phase="$1" repo_root="$2"
+  [[ -z "$repo_root" ]] && return 0
+  local config_file="$repo_root/.claude/cmux-tab-agents.toml"
+  [[ ! -f "$config_file" ]] && return 0
+  # Extract from [models] section: find [models], read until next [, extract phase = value
+  local value
+  value=$(sed -n '/^\[models\]/,/^\[/p' "$config_file" \
+    | grep -E "^[[:space:]]*${phase}[[:space:]]*=" \
+    | head -1 \
+    | sed -E "s/^[[:space:]]*${phase}[[:space:]]*=[[:space:]]*//" \
+    | sed -E 's/^"(.*)"$/\1/' \
+    | sed -E "s/^'(.*)'\$/\1/" \
+    || true)
+  [[ -n "$value" ]] && echo "$value"
+}
+
 # render_template <src> <dst>  — substitutes {{KEY}} placeholders from env vars.
 # Reads source path and dest path from argv. Reads template values from env
 # (TPL_TICKET, TPL_TITLE, TPL_SLUG, TPL_WORKTREE, TPL_PWS, TPL_PSURF,
@@ -243,23 +263,40 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
   # the title against the pre-claude shell makes the custom title stick.
   cmux rename-tab --surface "$SURFACE" "${TICKET}: ${TITLE}" >/dev/null 2>&1 || true
 
-  # 4. Boot the tab: cd into the worktree, then launch claude with the seed.
-  # The boot one-liner reads the rendered prompt at runtime via $(cat ...) so
-  # we don't have to embed multi-KB of prompt text in a `cmux send` payload.
-  # The shell prompt accepts \n as Enter (so cd && claude runs immediately);
-  # we fire `send-key enter` separately as a safety net for terminals where
-  # the trailing newline is interpreted differently.
-  #
-  # Resolve model and effort through the layered defaults (CLI > env > per-repo TOML > user-global TOML).
-  # Use current directory (dispatcher's repo) for per-repo TOML lookup.
-  local resolved_model resolved_effort
-  resolved_model=$(resolve_setting MODEL "$MODEL" ".")
-  resolved_effort=$(resolve_setting EFFORT "$EFFORT" ".")
+  # 4. Resolve model and effort through layered defaults:
+  #    MODEL: CLI flag > phase-specific [models].<phase> > default_model > (none)
+  #    EFFORT: CLI flag > env var > per-repo TOML > user-global TOML > (none)
+  # Get repo root for phase-specific and per-repo config lookups.
+  local repo_root
+  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || repo_root="."
+
+  # Resolve MODEL: check CLI first, then phase-specific config, then generic defaults.
+  local resolved_model=""
+  if [[ -n "$MODEL" ]]; then
+    resolved_model="$MODEL"
+  else
+    # Try phase-specific [models].<phase> config
+    resolved_model=$(resolve_model_for_phase "$PHASE" "$repo_root") || resolved_model=""
+    # If not found, try generic default_model
+    if [[ -z "$resolved_model" ]]; then
+      resolved_model=$(resolve_setting MODEL "" "$repo_root") || resolved_model=""
+    fi
+  fi
+
+  # Resolve EFFORT: use generic resolve_setting (CLI > env > per-repo TOML > user-global TOML).
+  local resolved_effort
+  resolved_effort=$(resolve_setting EFFORT "$EFFORT" "$repo_root") || resolved_effort=""
 
   local model_flag="" effort_flag=""
   [[ -n "$resolved_model" ]] && model_flag=" --model $resolved_model"
   [[ -n "$resolved_effort" ]] && effort_flag=" --effort $resolved_effort"
 
+  # 5. Boot the tab: cd into the worktree, then launch claude with the seed.
+  # The boot one-liner reads the rendered prompt at runtime via $(cat ...) so
+  # we don't have to embed multi-KB of prompt text in a `cmux send` payload.
+  # The shell prompt accepts \n as Enter (so cd && claude runs immediately);
+  # we fire `send-key enter` separately as a safety net for terminals where
+  # the trailing newline is interpreted differently.
   # Pass an initial user message as the trailing positional arg to claude so
   # the agent fires immediately on boot instead of idling on the welcome
   # screen. Avoids the fragile backgrounded `( sleep N; cmux send ... ) &`
@@ -268,11 +305,11 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
     "cd $WT && claude --dangerously-skip-permissions${model_flag}${effort_flag} --append-system-prompt \"\$(cat $RENDERED)\" \"Begin executing the task per the system prompt.\""$'\n'
   cmux send-key --surface "$SURFACE" enter >/dev/null 2>&1 || true
 
-  # 5. Set initial dispatch pill on the planner's workspace.
+  # 6. Set initial dispatch pill on the planner's workspace.
   cmux set-status "${TICKET}-${PHASE}" "dispatched" \
     --icon clock --color "#ff9500" \
     --workspace "$PLANNER_WS" >/dev/null 2>&1 || true
 
-  # 6. Emit the surface ref for the planner.
+  # 7. Emit the surface ref for the planner.
   echo "$SURFACE"
 }

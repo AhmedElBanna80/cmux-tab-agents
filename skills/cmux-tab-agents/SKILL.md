@@ -120,7 +120,7 @@ All scripts live at `~/.claude/skills/cmux-tab-agents/scripts/`. They must be ru
 
 **Optional flags** (all three scripts):
 - `--planner-surface <ref>` — where tab-agents push terminal-state lines (defaults to auto-detected)
-- `--model <model-id>` — override Claude model
+- `--model <model-id>` — override Claude model (precedence: this flag > repo config `[models].<phase>` > global default; see **"Model defaults by phase"** in `references/configuration.md`)
 
 For detailed examples, all parameters, and `--fix-only` mode, see `references/dispatch-reference.md`.
 
