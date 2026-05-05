@@ -1,0 +1,4 @@
+node_modules/
+dist/
+.cmux-bootstrap.log
+.cmux-tab-prompt-implementer.md
