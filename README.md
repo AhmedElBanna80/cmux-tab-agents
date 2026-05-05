@@ -114,7 +114,15 @@ Iterate on this plugin in-place — no marketplace re-install loop.
 
    Runs shellcheck (if installed) + jq JSON validation + the prompt-template lint (catches stray `{{TYPO}}` placeholders).
 
-4. Preview the rendered implementer prompt with sample values:
+4. Run tests:
+
+   ```sh
+   make test
+   ```
+
+   Runs all test scripts in the repo. Tests must pass before committing.
+
+5. Preview the rendered implementer prompt with sample values:
 
    ```sh
    make preview
@@ -127,9 +135,9 @@ Iterate on this plugin in-place — no marketplace re-install loop.
    scripts/dev/render-prompt.sh code-reviewer
    ```
 
-5. In a real cmux session, exercise `/cmux-tab-agents` against a sample ticket to test the live dispatch end-to-end.
+6. In a real cmux session, exercise `/cmux-tab-agents` against a sample ticket to test the live dispatch end-to-end.
 
-6. Unlink when done:
+7. Unlink when done:
 
    ```sh
    make unlink

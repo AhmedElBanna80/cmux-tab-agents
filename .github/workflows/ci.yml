@@ -18,8 +18,13 @@ jobs:
       - name: make lint
         run: make lint
 
-      - name: target-path tests
-        run: bash scripts/dev/tests/test_target_path.sh
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: render-prompt acceptance tests
-        run: bash scripts/dev/tests/test_acceptance.sh
+      - name: install dependencies
+        run: sudo apt-get update && sudo apt-get install -y bash
+
+      - name: make test
+        run: make test

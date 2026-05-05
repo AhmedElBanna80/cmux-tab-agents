@@ -1,4 +1,4 @@
-.PHONY: help link unlink status lint preview
+.PHONY: help link unlink status lint test preview
 
 help:
 	@printf '%s\n' \
@@ -9,6 +9,7 @@ help:
 	  '  make unlink   remove the symlink (does not auto-restore backups)' \
 	  '  make status   show whether the plugin is linked to this checkout' \
 	  '  make lint     run shellcheck + JSON + prompt-template lint' \
+	  '  make test     run all tests' \
 	  '  make preview  preview the implementer prompt with sample values'
 
 link:
@@ -22,6 +23,12 @@ status:
 
 lint:
 	@bash scripts/dev/lint.sh
+
+test:
+	@for f in scripts/dev/tests/test_*.sh scripts/dev/tests/test-*.sh; do \
+		[ -f "$$f" ] || continue; \
+		bash "$$f" || exit 1; \
+	done
 
 preview:
 	@bash scripts/dev/render-prompt.sh implementer
