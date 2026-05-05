@@ -56,7 +56,7 @@ Once you're clear on requirements:
 2. Run the project's verification commands (tests, type-check, lint).
 3. Commit your work with hooks running (NEVER `--no-verify`).
 4. Self-review per discipline.md.
-5. Write the result file and update cmux status pills.
+5. Write verification artifact (`.cmux-implementer-verification.json`; schema in reporting-contract.md) and result file.
 6. Idle the tab open.
 
 Work from: `<WORKTREE>` (and only from `<WORKTREE>`; see task context for the actual path).

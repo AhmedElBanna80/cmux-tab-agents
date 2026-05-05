@@ -91,6 +91,70 @@ spec_reviewer_status: APPROVED
 ## Overall assessment
 ```
 
+## Verification artifact
+
+The implementer writes an optional verification artifact file alongside its result file to help reviewers reduce re-verification work.
+
+### File location and schema
+
+For a given worktree `$WT`:
+
+```
+$WT/.cmux-implementer-verification.json
+```
+
+Schema:
+
+```json
+{
+  "implementer_sha": "abc123def456...",
+  "timestamp": "2026-05-05T12:34:56Z",
+  "tests": {
+    "framework": "jest",
+    "passed": 42,
+    "failed": 0,
+    "command": "npm test",
+    "status": "passed"
+  },
+  "hooks": {
+    "status": "passed",
+    "skipped": false,
+    "evidence": "pre-commit hook output hash or summary"
+  },
+  "lint": {
+    "command": "npm run lint",
+    "status": "passed"
+  },
+  "build": {
+    "command": "npm run build",
+    "status": "passed"
+  }
+}
+```
+
+**Honest reporting required:** If a verification step was skipped or failed, the artifact must reflect that. Possible status values:
+
+- `passed` — verification step succeeded
+- `failed` — verification step failed (tests did not pass, lint found issues, etc.)
+- `skipped` — verification step was not run
+
+### How reviewers use it
+
+When the implementer's verification artifact is present:
+
+1. Check that `implementer_sha` matches the current HEAD commit.
+2. Check that `timestamp` is recent (within the last hour; adjust threshold per project policy).
+3. Check that all status fields are `passed` (not `failed` or `skipped`).
+
+If all three checks pass, the reviewer **may** downgrade re-verification to spot-checks:
+- Run a subset of the test suite (e.g., tests for changed files only, not full suite).
+- Confirm the hook output artifact makes sense (hash/summary check, no truncation).
+- Spot-check lint output (skim for false positives, don't exhaustively re-run).
+
+If the artifact is missing, stale (timestamp > 1 hour), has a mismatched sha, or has any `failed`/`skipped` status:
+- Perform full re-verification: run all tests, lint, build, and hooks independently.
+- Flag the artifact state as a concern in your result file if it signals incomplete or stale information.
+
 ## Polling pattern
 
 The planner uses `poll-result.sh` to wait on a phase's result file:
