@@ -23,17 +23,23 @@ The code in this worktree has been reviewed. Apply ONLY the fixes listed below. 
 
 {{FEEDBACK}}
 
+## Discipline (read this first)
+
+Read `{{WORKTREE}}/skills/cmux-tab-agents/references/discipline.md` before doing anything else. It defines the core rules:
+
+- **TDD red-green-refactor** — watch each test fail before writing code
+- **Verification before completion** — no claims without fresh evidence
+- **Hook-bypass is forbidden** — never use `--no-verify` or equivalents
+
+This is a stripped seed for focused fixes. Scope is narrower than full re-dispatch, but all discipline rules still apply.
+
 ## Rules
 
 - **No code generation beyond the feedback.** The previous implementer's code is the starting point; improve only what the reviewer identified.
 - **Verification is mandatory.** Run tests, type-check, lint, and any other project verification. Failing tests = not done.
 - **Hooks always run.** Never `--no-verify`, never bypass hooks in any form. If a hook fails, read the failure, fix the underlying code, re-stage, and try again.
 - **Commit with hooks.** All commits must go through pre-commit hooks successfully.
-- **Report via result file and cmux.** Write `.cmux-implementer-result.md` with YAML frontmatter (status, branch, last_commit) and markdown body (summary, tests run, files changed, concerns). Push one terminal-state line to your planner's surface, then idle.
-
-## Discipline
-
-This is a stripped seed, not a full TDD scaffold. Follow the same discipline as the full implementer: TDD red-green-refactor, no hook bypass, verification before completion claims. See `.cmux-implementer-result.md` format examples in prior phases.
+- **Report via result file.** Write `.cmux-implementer-result.md` per the schema in `discipline.md`. Push one terminal-state line to your planner's surface, then idle.
 
 ## Self-Review Before Reporting
 
