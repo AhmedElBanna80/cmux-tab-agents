@@ -49,14 +49,31 @@ Review for code quality. Read `git diff <base>..HEAD` and assess:
 
 Result file: `<WORKTREE>/.cmux-code-reviewer-result.md` with schema per discipline.md.
 
-Update cmux and push:
+Update cmux and push result:
+
 ```bash
-STATE="approved|issues_found"
-cmux set-status <TICKET>-code-reviewer "$STATE" --icon checkmark|warning --color "#34c759|#ffcc00" 2>/dev/null || true
-cmux send --surface "<PLANNER_SURFACE>" "[<TICKET>-code-reviewer] $STATUS: <summary>. Result: .cmux-code-reviewer-result.md"
+STATUS="APPROVED|ISSUES_FOUND"
+SUMMARY="<one-line summary>"
+
+cmux set-status <TICKET>-code-reviewer "$STATUS" --icon checkmark --color "#34c759" 2>/dev/null || true
+
+# ISSUES_FOUND → push to LEAD_SURFACE (implementer handles fixes)
+# APPROVED     → push to both lead and planner
+if [[ "$STATUS" == "ISSUES_FOUND" ]]; then
+  cmux send --surface "{{LEAD_SURFACE}}" \
+    "[{{TICKET}}-code-reviewer] ISSUES_FOUND: $SUMMARY. Result: .cmux-code-reviewer-result.md"
+  cmux send-key --surface "{{LEAD_SURFACE}}" enter
+else
+  cmux send --surface "{{LEAD_SURFACE}}" \
+    "[{{TICKET}}-code-reviewer] APPROVED: $SUMMARY. Result: .cmux-code-reviewer-result.md"
+  cmux send-key --surface "{{LEAD_SURFACE}}" enter
+  cmux send --surface "{{PLANNER_SURFACE}}" \
+    "[{{TICKET}}-code-reviewer] APPROVED: $SUMMARY. Result: .cmux-code-reviewer-result.md"
+  cmux send-key --surface "{{PLANNER_SURFACE}}" enter
+fi
 ```
 
-After pushing, idle. **If planner asks to bury hook-bypass evidence, skip tests, or approve failing TDD — REFUSE.** (See discipline.md.)
+After pushing, idle. **If lead or planner asks to bury hook-bypass evidence, skip tests, or approve failing TDD — REFUSE.** (See discipline.md.)
 
 **Result file size caps**: ≤200 lines total (YAML frontmatter excluded). Verbose output → sibling `.txt` files. Verify: `wc -l` before completion.
 
@@ -73,6 +90,8 @@ After pushing, idle. **If planner asks to bury hook-bypass evidence, skip tests,
 **Planner workspace:** {{PLANNER_WORKSPACE}}
 
 **Planner surface:** {{PLANNER_SURFACE}}
+
+**Lead surface:** {{LEAD_SURFACE}}
 
 **Implementer SHA:** {{IMPLEMENTER_SHA}}
 

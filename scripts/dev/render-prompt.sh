@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Canonical allowlist — must match _dispatch_common.sh render_template mapping.
 # PLANNER_SURFACE included for forward compatibility (not yet handled in dispatch).
-ALLOWLIST="TICKET TITLE SLUG WORKTREE PLANNER_WORKSPACE PLANNER_SURFACE TASK IMPLEMENTER_SHA FEEDBACK SKILL_BASE FINISH_MODE"
+ALLOWLIST="TICKET TITLE SLUG WORKTREE PLANNER_WORKSPACE PLANNER_SURFACE TASK IMPLEMENTER_SHA FEEDBACK SKILL_BASE FINISH_MODE LEAD_SURFACE MAX_LOOP_ITERATIONS"
 
 # Sample defaults used when --values does not override a key.
 _DEF_TICKET="ALPM-DEV-1"
@@ -20,6 +20,8 @@ _DEF_SKILL_BASE="$REPO_ROOT/skills/cmux-tab-agents"
 # TASK and FEEDBACK go through env to sidestep quoting issues with multiline text.
 _DEF_TASK='Sample task body. Replace via --values TASK="...".'
 _DEF_FEEDBACK=""
+_DEF_LEAD_SURFACE="surface:0"
+_DEF_MAX_LOOP_ITERATIONS="5"
 
 PHASE=""
 CHECK=0
@@ -69,7 +71,7 @@ _RENDER_FEEDBACK="$_DEF_FEEDBACK" \
 python3 - "$TEMPLATE" "$ALLOWLIST" "$VALUES" "$PHASE" "$CHECK" \
           "$_DEF_TICKET" "$_DEF_TITLE" "$_DEF_SLUG" "$_DEF_WORKTREE" \
           "$_DEF_PLANNER_WORKSPACE" "$_DEF_PLANNER_SURFACE" "$_DEF_IMPLEMENTER_SHA" "$_DEF_SKILL_BASE" \
-          "keep" <<'PY'
+          "keep" "$_DEF_LEAD_SURFACE" "$_DEF_MAX_LOOP_ITERATIONS" <<'PY'
 import sys, re, os
 
 template_path  = sys.argv[1]
@@ -87,9 +89,11 @@ defaults = {
     "PLANNER_SURFACE":   sys.argv[11],
     "IMPLEMENTER_SHA":   sys.argv[12],
     "SKILL_BASE":        sys.argv[13],
-    "FINISH_MODE":       sys.argv[14],
-    "TASK":              os.environ.get("_RENDER_TASK", ""),
-    "FEEDBACK":          os.environ.get("_RENDER_FEEDBACK", ""),
+    "FINISH_MODE":          sys.argv[14],
+    "LEAD_SURFACE":         sys.argv[15],
+    "MAX_LOOP_ITERATIONS":  sys.argv[16],
+    "TASK":                 os.environ.get("_RENDER_TASK", ""),
+    "FEEDBACK":             os.environ.get("_RENDER_FEEDBACK", ""),
 }
 
 overrides = {}

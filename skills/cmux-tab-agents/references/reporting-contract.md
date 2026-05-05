@@ -11,6 +11,7 @@ For a given worktree `$WT`:
 | implementer     | `$WT/.cmux-implementer-result.md`     |
 | spec-reviewer   | `$WT/.cmux-spec-reviewer-result.md`   |
 | code-reviewer   | `$WT/.cmux-code-reviewer-result.md`   |
+| task-lead       | `$WT/.cmux-task-result.md`            |
 
 Files use YAML frontmatter + markdown body. They must contain a `status:` field in the frontmatter — `poll-result.sh` validates that and refuses to return malformed output.
 
@@ -125,6 +126,34 @@ spec_reviewer_status: APPROVED
 ## Hook-bypass check
 ## Verification commands re-run
 ## Overall assessment
+```
+
+### Task-lead roll-up result
+
+Written by the implementer (task lead) after both spec-reviewer and code-reviewer have APPROVED. This is the single file the planner reads — one per sub-task.
+
+```yaml
+---
+ticket: ALPM-1234-1
+phase: task-lead
+status: DONE | BLOCKED
+loop_iterations: 2
+---
+## Summary
+<2-3 sentences covering implementer + spec + code reviewer outcomes>
+
+## Files changed
+<git diff --name-only output>
+
+## Final commit SHA
+<sha>
+
+## Reviewer outcomes
+- spec-reviewer: APPROVED
+- code-reviewer: APPROVED
+
+## Blockers / concerns
+<bullet list, or "none">
 ```
 
 ## Verification artifact

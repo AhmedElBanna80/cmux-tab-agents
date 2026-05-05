@@ -21,6 +21,8 @@ Usage: $0 --ticket TICKET --title TITLE --slug SLUG \\
           [--implementer-sha SHA] \\
           [--feedback-from-previous-review TEXT_OR_PATH] \\
           [--finish-mode MODE] \\
+          [--lead-surface REF] \\
+          [--max-loop-iterations N] \\
           [--fix-only]
 EOF
   exit 1
@@ -94,8 +96,10 @@ mapping = {
     "IMPLEMENTER_SHA":   os.environ.get("TPL_IMPL_SHA", ""),
     "TASK":              os.environ.get("TPL_TASK", ""),
     "FEEDBACK":          os.environ.get("TPL_FEEDBACK", ""),
-    "SKILL_BASE":        os.environ.get("TPL_SKILL_BASE", ""),
-    "FINISH_MODE":       os.environ.get("TPL_FINISH_MODE", ""),
+    "SKILL_BASE":           os.environ.get("TPL_SKILL_BASE", ""),
+    "FINISH_MODE":          os.environ.get("TPL_FINISH_MODE", ""),
+    "LEAD_SURFACE":         os.environ.get("TPL_LEAD_SURF", ""),
+    "MAX_LOOP_ITERATIONS":  os.environ.get("TPL_MAX_LOOP_ITER", ""),
 }
 with open(src, "r", encoding="utf-8") as f:
     body = f.read()
@@ -158,6 +162,7 @@ resolve_setting() {
 dispatch_main() {
   local TICKET="" TITLE="" SLUG="" TASK_TEXT="" TASK_FILE=""
   local TYPE="" PLANNER_WS="" PLANNER_SURFACE="" MODEL="" EFFORT="" IMPL_SHA="" FEEDBACK="" FIX_ONLY=0 FINISH_MODE="keep"
+  local LEAD_SURFACE="" MAX_LOOP_ITERATIONS="5"
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -174,6 +179,8 @@ dispatch_main() {
       --implementer-sha)     IMPL_SHA="$2"; shift 2 ;;
       --feedback-from-previous-review) FEEDBACK="$2"; shift 2 ;;
       --finish-mode)         FINISH_MODE="$2"; shift 2 ;;
+      --lead-surface)        LEAD_SURFACE="$2"; shift 2 ;;
+      --max-loop-iterations) MAX_LOOP_ITERATIONS="$2"; shift 2 ;;
       --fix-only)            FIX_ONLY=1; shift ;;
       -h|--help)             usage ;;
       *) echo "$0: unknown arg '$1'" >&2; usage ;;
@@ -277,6 +284,7 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
     TPL_PWS="$PLANNER_WS" TPL_PSURF="$PLANNER_SURFACE" \
     TPL_IMPL_SHA="$IMPL_SHA" TPL_TASK="$TASK_TEXT" TPL_FEEDBACK="$FEEDBACK" \
     TPL_SKILL_BASE="$SKILL_ROOT" TPL_FINISH_MODE="$FINISH_MODE" \
+    TPL_LEAD_SURF="$LEAD_SURFACE" TPL_MAX_LOOP_ITER="$MAX_LOOP_ITERATIONS" \
     render_template "$TEMPLATE" "$RENDERED"
 
   # 3. Spawn a new tab in the planner's pane. Reuse the pane ref we already

@@ -86,6 +86,73 @@ Replace `<WORKTREE>` with the value from the Task context section below.
 
 ---
 
+## Task-lead pipeline
+
+After your implementation is `DONE`, you are the **task lead** — you drive the review loop without planner involvement. Max iterations: `{{MAX_LOOP_ITERATIONS}}` (default 5).
+
+### Step 1 — dispatch spec-reviewer
+
+```bash
+dispatch-spec-reviewer.sh \
+  --ticket <TICKET> --title <TITLE> --slug <SLUG> \
+  --task-text <TASK> \
+  --implementer-sha "$(git rev-parse HEAD)" \
+  --planner-surface <PLANNER_SURFACE> \
+  --lead-surface "$OWN_SURFACE"
+```
+
+Wait on your input box. The spec-reviewer will push back to `$OWN_SURFACE` (= `{{LEAD_SURFACE}}` when you are dispatched as lead).
+
+### Step 2 — spec-reviewer loop
+
+- **APPROVED** → proceed to Step 3 (code-reviewer).
+- **ISSUES_FOUND** → fix issues (TDD red-green), commit, then re-dispatch spec-reviewer. Increment iteration counter.
+  - If the **same issue is flagged twice in a row** → BLOCKED escalation (write `.cmux-task-result.md` with `status: BLOCKED`, push to planner).
+  - If **iteration counter ≥ {{MAX_LOOP_ITERATIONS}}** → BLOCKED escalation.
+
+### Step 3 — dispatch code-reviewer
+
+```bash
+dispatch-code-reviewer.sh \
+  --ticket <TICKET> --title <TITLE> --slug <SLUG> \
+  --task-text <TASK> \
+  --implementer-sha "$(git rev-parse HEAD)" \
+  --planner-surface <PLANNER_SURFACE> \
+  --lead-surface "$OWN_SURFACE"
+```
+
+### Step 4 — code-reviewer loop
+
+- **APPROVED** → proceed to Step 5.
+- **ISSUES_FOUND** → fix issues (TDD), commit, then re-dispatch code-reviewer. Increment counter.
+  - Same circuit-breaker rules as Step 2.
+
+### Step 5 — finish and report
+
+When **both reviewers have APPROVED**:
+
+1. Run `{{SKILL_BASE}}/scripts/finish-task.sh {{FINISH_MODE}} <WORKTREE>`.
+2. Write `.cmux-task-result.md` (schema in `references/reporting-contract.md`).
+3. Push **one line** to planner:
+
+```bash
+cmux send --surface "{{PLANNER_SURFACE}}" \
+  "[{{TICKET}}-implementer] DONE: <summary>. Result: <WORKTREE>/.cmux-task-result.md"
+cmux send-key --surface "{{PLANNER_SURFACE}}" enter
+```
+
+4. Idle.
+
+### Circuit-breaker (hard rule)
+
+BLOCKED if either:
+- Same reviewer flags the **same issue in two consecutive rounds**, or
+- Total loop iterations ≥ `{{MAX_LOOP_ITERATIONS}}`.
+
+On BLOCKED: write `.cmux-task-result.md` with `status: BLOCKED`, push to `{{PLANNER_SURFACE}}`, idle.
+
+---
+
 ## Hard rules
 
 - Stay in the worktree. Never edit files in the parent repo.
