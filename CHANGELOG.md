@@ -118,6 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - All four seed prompts updated to use `{{SKILL_BASE}}/references/discipline.md`
   - `references/prompt-rendering.md`: Documented `{{SKILL_BASE}}` and the distinction from `{{WORKTREE}}`
   - New test suite `scripts/dev/tests/test_skill_base_discipline_path.sh` validates discipline path resolution
+- **ISSUE-47: Fix OWN_SURFACE resolves to planner surface instead of agent's own** — Dispatcher now spawns the tab first, extracts its surface ref, and passes it as `{{OWN_SURFACE}}` template placeholder. All four seed prompts replaced the `cmux identify --no-caller` boot step with `OWN_SURFACE="{{OWN_SURFACE}}"`. `render-prompt.sh` updated with allowlist entry and default.
 
 ### Compliance
 
