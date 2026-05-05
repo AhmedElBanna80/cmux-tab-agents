@@ -32,7 +32,7 @@ printf '=== ISSUE-18 model defaults tests ===\n\n'
 setup_test_repo() {
   local tmpdir
   tmpdir=$(mktemp -d)
-  cd "$tmpdir"
+  cd "$tmpdir" || exit 1
   git init -q
   git config user.email "test@example.com"
   git config user.name "Test User"
@@ -99,7 +99,7 @@ check_exit_zero "bash -n _dispatch_common.sh" bash -n "$SKILL_ROOT/scripts/_disp
 
 # Test 2: resolve_model_for_phase with explicit --model flag
 tmpdir=$(setup_test_repo "[models]\nimplementer = \"claude-haiku-4-5-20251001\"")
-trap "cleanup_test_repo '$tmpdir'" EXIT
+trap 'cleanup_test_repo "$tmpdir"' EXIT
 out=$(run_resolve_in_repo "$tmpdir" implementer --model "claude-opus-4-7")
 if [[ "$out" == "claude-opus-4-7" ]]; then
   pass "resolve_model_for_phase: explicit --model overrides config"
@@ -110,7 +110,7 @@ cleanup_test_repo "$tmpdir"
 
 # Test 3: resolve_model_for_phase reads implementer from repo config
 tmpdir=$(setup_test_repo "[models]\nimplementer = \"claude-sonnet-4-6\"\nspec_reviewer = \"claude-haiku-4-5-20251001\"\ncode_reviewer = \"claude-haiku-4-5-20251001\"")
-trap "cleanup_test_repo '$tmpdir'" EXIT
+trap 'cleanup_test_repo "$tmpdir"' EXIT
 out=$(run_resolve_in_repo "$tmpdir" implementer)
 if [[ "$out" == "claude-sonnet-4-6" ]]; then
   pass "resolve_model_for_phase: reads implementer from repo config"
@@ -137,7 +137,7 @@ cleanup_test_repo "$tmpdir"
 
 # Test 6: resolve_model_for_phase with no config and no flag returns empty
 tmpdir=$(setup_test_repo)
-trap "cleanup_test_repo '$tmpdir'" EXIT
+trap 'cleanup_test_repo "$tmpdir"' EXIT
 out=$(run_resolve_in_repo "$tmpdir" implementer)
 if [[ -z "$out" ]]; then
   pass "resolve_model_for_phase: no config, no flag returns empty"
@@ -148,7 +148,7 @@ cleanup_test_repo "$tmpdir"
 
 # Test 7: CLI flag overrides config (explicit precedence)
 tmpdir=$(setup_test_repo "[models]\nimplementer = \"claude-sonnet-4-6\"")
-trap "cleanup_test_repo '$tmpdir'" EXIT
+trap 'cleanup_test_repo "$tmpdir"' EXIT
 out=$(run_resolve_in_repo "$tmpdir" implementer --model "claude-haiku-4-5-20251001")
 if [[ "$out" == "claude-haiku-4-5-20251001" ]]; then
   pass "resolve_model_for_phase: --model flag overrides config"
@@ -159,7 +159,7 @@ cleanup_test_repo "$tmpdir"
 
 # Test 8: Hyphenated phase names (spec-reviewer, code-reviewer) are normalized to underscores
 tmpdir=$(setup_test_repo "[models]\nspec_reviewer = \"claude-opus-4-7\"\ncode_reviewer = \"claude-haiku-4-5-20251001\"")
-trap "cleanup_test_repo '$tmpdir'" EXIT
+trap 'cleanup_test_repo "$tmpdir"' EXIT
 out=$(run_resolve_in_repo "$tmpdir" spec-reviewer)
 if [[ "$out" == "claude-opus-4-7" ]]; then
   pass "resolve_model_for_phase: hyphenated 'spec-reviewer' resolves to underscore config 'spec_reviewer'"
@@ -178,7 +178,7 @@ cleanup_test_repo "$tmpdir"
 
 # Test 10: dispatch_main prints resolved model to stderr
 tmpdir=$(setup_test_repo "[models]\nimplementer = \"claude-sonnet-4-6\"")
-trap "cleanup_test_repo '$tmpdir'" EXIT
+trap 'cleanup_test_repo "$tmpdir"' EXIT
 out=$(run_dispatch_model_resolution "$tmpdir" ALPM-1234-1 implementer "")
 if printf '%s' "$out" | grep -qF "[ALPM-1234-1-implementer] resolved model: claude-sonnet-4-6"; then
   pass "dispatch_main: stderr prints resolved model from config"
@@ -189,7 +189,7 @@ cleanup_test_repo "$tmpdir"
 
 # Test 11: dispatch_main prints model from explicit --model flag to stderr
 tmpdir=$(setup_test_repo "[models]\nimplementer = \"claude-sonnet-4-6\"")
-trap "cleanup_test_repo '$tmpdir'" EXIT
+trap 'cleanup_test_repo "$tmpdir"' EXIT
 out=$(run_dispatch_model_resolution "$tmpdir" ALPM-1234-1 implementer "claude-opus-4-7")
 if printf '%s' "$out" | grep -qF "[ALPM-1234-1-implementer] resolved model: claude-opus-4-7"; then
   pass "dispatch_main: stderr prints resolved model from CLI flag"
