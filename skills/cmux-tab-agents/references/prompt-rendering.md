@@ -18,8 +18,29 @@ Each seed prompt is split into two logical regions:
 ### Dynamic Tail (Per-Dispatch)
 
 - The `## Task context` section and everything after it
-- Contains **all** placeholder substitutions: `{{TICKET}}`, `{{TITLE}}`, `{{WORKTREE}}`, `{{PLANNER_WORKSPACE}}`, `{{PLANNER_SURFACE}}`, `{{TASK}}`, `{{FEEDBACK}}`, `{{IMPLEMENTER_SHA}}` (as relevant to the phase)
+- Contains **all** placeholder substitutions: `{{TICKET}}`, `{{TITLE}}`, `{{WORKTREE}}`, `{{PLANNER_WORKSPACE}}`, `{{PLANNER_SURFACE}}`, `{{TASK}}`, `{{FEEDBACK}}`, `{{IMPLEMENTER_SHA}}`, `{{SKILL_BASE}}` (as relevant to the phase)
 - Changes per dispatch, so this section is not cached (it's new content each time)
+
+## Placeholder Reference
+
+| Placeholder | Purpose | Value | Scope |
+|---|---|---|---|
+| `{{TICKET}}` | Issue/task ID | e.g., `ISSUE-25` | Tail only |
+| `{{TITLE}}` | Issue title | e.g., `Fix discipline path` | Tail only |
+| `{{WORKTREE}}` | Consumer repo's worktree path | e.g., `/tmp/worktree-xyz` | Tail only |
+| `{{SKILL_BASE}}` | Installed skill directory | e.g., `/home/.claude/plugins/.../skills/cmux-tab-agents` | Prefix or tail (for reading skill files) |
+| `{{PLANNER_WORKSPACE}}` | Planner's cmux workspace | e.g., `workspace:UUID` | Tail only |
+| `{{PLANNER_SURFACE}}` | Planner's cmux surface | e.g., `surface:UUID` | Tail only |
+| `{{TASK}}` | Task specification | Multi-line task text | Tail only |
+| `{{FEEDBACK}}` | Code review feedback | Multi-line feedback text | Tail only |
+| `{{IMPLEMENTER_SHA}}` | Implementer's final commit | e.g., `abc123def456` | Tail only |
+
+### Important Distinction: {{WORKTREE}} vs {{SKILL_BASE}}
+
+- **{{WORKTREE}}** = path to the consumer repo's working directory (where the implementer works)
+- **{{SKILL_BASE}}** = path to the installed skill directory (where tab-agent code and discipline.md live)
+
+These are **different paths** when the skill is used from outside the cmux-tab-agents repo itself. Never reference `{{WORKTREE}}/skills/cmux-tab-agents/...` because that path doesn't exist in consumer repos. Use `{{SKILL_BASE}}/...` to reference skill files.
 
 ## Enforcement
 

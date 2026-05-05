@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Canonical allowlist — must match _dispatch_common.sh render_template mapping.
 # PLANNER_SURFACE included for forward compatibility (not yet handled in dispatch).
-ALLOWLIST="TICKET TITLE SLUG WORKTREE PLANNER_WORKSPACE PLANNER_SURFACE TASK IMPLEMENTER_SHA FEEDBACK"
+ALLOWLIST="TICKET TITLE SLUG WORKTREE PLANNER_WORKSPACE PLANNER_SURFACE TASK IMPLEMENTER_SHA FEEDBACK SKILL_BASE"
 
 # Sample defaults used when --values does not override a key.
 _DEF_TICKET="ALPM-DEV-1"
@@ -16,6 +16,7 @@ _DEF_WORKTREE="/tmp/sample-worktree"
 _DEF_PLANNER_WORKSPACE="workspace:99"
 _DEF_PLANNER_SURFACE="surface:99"
 _DEF_IMPLEMENTER_SHA="deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+_DEF_SKILL_BASE="$REPO_ROOT/skills/cmux-tab-agents"
 # TASK and FEEDBACK go through env to sidestep quoting issues with multiline text.
 _DEF_TASK='Sample task body. Replace via --values TASK="...".'
 _DEF_FEEDBACK=""
@@ -67,7 +68,7 @@ _RENDER_TASK="$_DEF_TASK" \
 _RENDER_FEEDBACK="$_DEF_FEEDBACK" \
 python3 - "$TEMPLATE" "$ALLOWLIST" "$VALUES" "$PHASE" "$CHECK" \
           "$_DEF_TICKET" "$_DEF_TITLE" "$_DEF_SLUG" "$_DEF_WORKTREE" \
-          "$_DEF_PLANNER_WORKSPACE" "$_DEF_PLANNER_SURFACE" "$_DEF_IMPLEMENTER_SHA" <<'PY'
+          "$_DEF_PLANNER_WORKSPACE" "$_DEF_PLANNER_SURFACE" "$_DEF_IMPLEMENTER_SHA" "$_DEF_SKILL_BASE" <<'PY'
 import sys, re, os
 
 template_path  = sys.argv[1]
@@ -84,6 +85,7 @@ defaults = {
     "PLANNER_WORKSPACE": sys.argv[10],
     "PLANNER_SURFACE":   sys.argv[11],
     "IMPLEMENTER_SHA":   sys.argv[12],
+    "SKILL_BASE":        sys.argv[13],
     "TASK":              os.environ.get("_RENDER_TASK", ""),
     "FEEDBACK":          os.environ.get("_RENDER_FEEDBACK", ""),
 }

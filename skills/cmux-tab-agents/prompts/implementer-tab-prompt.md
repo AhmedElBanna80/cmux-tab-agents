@@ -8,8 +8,7 @@
     ~/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/verification-before-completion/SKILL.md
   plus a custom hook-bypass prohibition.
 
-  Discipline (stable, shared across all tab-agents) moved to:
-    ~/.claude/plugins/cache/cmux-tab-agents/<VERSION>/skills/cmux-tab-agents/references/discipline.md
+  Discipline (stable, shared across all tab-agents) is referenced via {{SKILL_BASE}}/references/discipline.md
   Re-sync if upstream discipline changes.
 
   CACHE-FRIENDLY STRUCTURE: This prompt is split into a static prefix (below)
@@ -25,7 +24,7 @@ You are the **IMPLEMENTER** tab-agent. Task context is in the ## Task context se
 
 ## Discipline (read this first)
 
-Read `<WORKTREE>/skills/cmux-tab-agents/references/discipline.md` before doing anything else (see Task context section below for `<WORKTREE>` value). It defines the rules you must follow:
+Read `{{SKILL_BASE}}/references/discipline.md` before doing anything else. It defines the rules you must follow:
 
 - **TDD red-green-refactor** — watch each test fail before writing code
 - **Verification before completion** — no claims without fresh evidence

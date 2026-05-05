@@ -42,6 +42,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **SKILL.md**: Updated "Polling for results" section with documentation of new output modes
   - **references/reporting-contract.md**: Added examples and recommendations for selective polling modes
 
+### Fixed
+
+- **ISSUE-25: Discipline path resolution outside cmux-tab-agents repo** — Added `{{SKILL_BASE}}` placeholder that resolves to the installed skill directory. All seed prompts now read discipline.md from `{{SKILL_BASE}}/references/discipline.md` instead of `{{WORKTREE}}/skills/cmux-tab-agents/references/discipline.md`, so the path works when the skill is used from consumer repos where `skills/cmux-tab-agents/` doesn't exist.
+  - `scripts/_dispatch_common.sh`: Computes `SKILL_BASE` from `SKILL_ROOT` and exports it to template substitution
+  - `scripts/dev/render-prompt.sh`: Added `SKILL_BASE` to allowlist and computed default value
+  - All four seed prompts updated to use `{{SKILL_BASE}}/references/discipline.md`
+  - `references/prompt-rendering.md`: Documented `{{SKILL_BASE}}` and the distinction from `{{WORKTREE}}`
+  - New test suite `scripts/dev/tests/test_skill_base_discipline_path.sh` validates discipline path resolution
+
 ### Compliance
 
 All acceptance criteria from ISSUE-17 are met:

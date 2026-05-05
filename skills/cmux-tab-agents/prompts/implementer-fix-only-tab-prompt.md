@@ -25,7 +25,7 @@ The code in this worktree has been reviewed. Apply ONLY the fixes listed below. 
 
 ## Discipline (read this first)
 
-Read `{{WORKTREE}}/skills/cmux-tab-agents/references/discipline.md` before doing anything else. It defines the core rules:
+Read `{{SKILL_BASE}}/references/discipline.md` before doing anything else. It defines the core rules:
 
 - **TDD red-green-refactor** — watch each test fail before writing code
 - **Verification before completion** — no claims without fresh evidence
