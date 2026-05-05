@@ -20,6 +20,7 @@ Usage: $0 --ticket TICKET --title TITLE --slug SLUG \\
           [--effort LEVEL] \\
           [--implementer-sha SHA] \\
           [--feedback-from-previous-review TEXT_OR_PATH] \\
+          [--finish-mode MODE] \\
           [--fix-only]
 EOF
   exit 1
@@ -94,6 +95,7 @@ mapping = {
     "TASK":              os.environ.get("TPL_TASK", ""),
     "FEEDBACK":          os.environ.get("TPL_FEEDBACK", ""),
     "SKILL_BASE":        os.environ.get("TPL_SKILL_BASE", ""),
+    "FINISH_MODE":       os.environ.get("TPL_FINISH_MODE", ""),
 }
 with open(src, "r", encoding="utf-8") as f:
     body = f.read()
@@ -155,7 +157,7 @@ resolve_setting() {
 
 dispatch_main() {
   local TICKET="" TITLE="" SLUG="" TASK_TEXT="" TASK_FILE=""
-  local TYPE="" PLANNER_WS="" PLANNER_SURFACE="" MODEL="" EFFORT="" IMPL_SHA="" FEEDBACK="" FIX_ONLY=0
+  local TYPE="" PLANNER_WS="" PLANNER_SURFACE="" MODEL="" EFFORT="" IMPL_SHA="" FEEDBACK="" FIX_ONLY=0 FINISH_MODE="keep"
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -171,6 +173,7 @@ dispatch_main() {
       --effort)              EFFORT="$2"; shift 2 ;;
       --implementer-sha)     IMPL_SHA="$2"; shift 2 ;;
       --feedback-from-previous-review) FEEDBACK="$2"; shift 2 ;;
+      --finish-mode)         FINISH_MODE="$2"; shift 2 ;;
       --fix-only)            FIX_ONLY=1; shift ;;
       -h|--help)             usage ;;
       *) echo "$0: unknown arg '$1'" >&2; usage ;;
@@ -180,6 +183,13 @@ dispatch_main() {
   [[ -z "$TICKET" ]] && { echo "$0: --ticket required" >&2; usage; }
   [[ -z "$TITLE"  ]] && { echo "$0: --title required"  >&2; usage; }
   [[ -z "$SLUG"   ]] && { echo "$0: --slug required"   >&2; usage; }
+
+  # Validate finish-mode: must be one of keep, pr, merge (discard not supported at dispatch)
+  case "$FINISH_MODE" in
+    keep|pr|merge) ;;
+    discard) echo "$0: --finish-mode discard is not supported at dispatch time. Use superpowers:finishing-a-development-branch interactively instead." >&2; exit 1 ;;
+    *) echo "$0: invalid --finish-mode '$FINISH_MODE'. Valid modes: keep, pr, merge" >&2; usage ;;
+  esac
 
   # --fix-only mode: feedback required, task optional
   if [[ $FIX_ONLY -eq 1 ]]; then
@@ -266,7 +276,7 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
   TPL_TICKET="$TICKET" TPL_TITLE="$TITLE" TPL_SLUG="$SLUG" TPL_WORKTREE="$WT" \
     TPL_PWS="$PLANNER_WS" TPL_PSURF="$PLANNER_SURFACE" \
     TPL_IMPL_SHA="$IMPL_SHA" TPL_TASK="$TASK_TEXT" TPL_FEEDBACK="$FEEDBACK" \
-    TPL_SKILL_BASE="$SKILL_ROOT" \
+    TPL_SKILL_BASE="$SKILL_ROOT" TPL_FINISH_MODE="$FINISH_MODE" \
     render_template "$TEMPLATE" "$RENDERED"
 
   # 3. Spawn a new tab in the planner's pane. Reuse the pane ref we already
