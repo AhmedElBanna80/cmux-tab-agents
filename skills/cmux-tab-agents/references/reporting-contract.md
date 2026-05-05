@@ -191,6 +191,23 @@ If the artifact is missing, stale (timestamp > 1 hour), has a mismatched sha, or
 - Perform full re-verification: run all tests, lint, build, and hooks independently.
 - Flag the artifact state as a concern in your result file if it signals incomplete or stale information.
 
+## Push line format (terminal states only)
+
+When a tab-agent reaches a terminal state (implementer: `DONE` / `DONE_WITH_CONCERNS` / `BLOCKED` / `NEEDS_CONTEXT`; reviewers: `APPROVED` / `ISSUES_FOUND`), it pushes two lines to the planner's input box:
+
+```
+[<TICKET>-<phase>] <STATUS>: <one-line summary>. Result: <worktree>/.cmux-<phase>-result.md
+focus: cmux rpc surface.focus '{"surface_id":"surface:<N>"}'
+```
+
+Example:
+```
+[ALPM-1234-1-implementer] DONE: wired up zod validation; 12 tests pass. Result: /Users/.../.cmux-implementer-result.md
+focus: cmux rpc surface.focus '{"surface_id":"surface:51"}'
+```
+
+The focus line is a copy-pastable shell command that jumps to the tab-agent's surface. It is always included (though the agent gracefully skips it if surface detection fails).
+
 ## Polling pattern
 
 The planner uses `poll-result.sh` to wait on a phase's result file:

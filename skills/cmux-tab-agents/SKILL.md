@@ -181,6 +181,16 @@ The pushed line is convenient — your input box becomes an inbox of completed w
 
 If the pushed line and the result file disagree (e.g. push says `DONE`, frontmatter says `BLOCKED`), trust the result file and treat the discrepancy as an `ISSUES_FOUND`-grade signal — the tab-agent is buggy and its work needs another pass.
 
+### Surface refs in tab-agent reports
+
+Whenever a surface ref appears in a tab-agent's result file or pushed message (e.g., `surface:17`), include a copy-pastable focus command on the next line:
+
+```
+surface:17 — focus: cmux rpc surface.focus '{"surface_id":"surface:17"}'
+```
+
+This is a convention, not a protocol change. Tab-agents emit this format automatically in their push lines. When you're writing reports to the user or replaying results, follow the same pattern to let users jump directly to the referenced surface without typing.
+
 ### How to talk back to a tab-agent (the reverse direction)
 
 The push channel is symmetric. The same `cmux send` mechanism that lets a tab-agent push a line into your input box also lets you push a line into a tab-agent's input box. The agent's TUI processes it as a new user message exactly as if a human had typed it. This makes the channel a real bidirectional conversation, not just one-shot reporting.
