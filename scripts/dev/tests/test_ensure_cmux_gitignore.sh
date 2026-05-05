@@ -31,7 +31,7 @@ fi
 
 # T3: _ensure_cmux_gitignore creates .gitignore if missing
 tmpdir=$(mktemp -d)
-trap "rm -rf '$tmpdir'" EXIT
+trap 'rm -rf "$tmpdir"' EXIT
 out=$(bash -c ". '$DISPATCH_COMMON'; _ensure_cmux_gitignore '$tmpdir'" 2>&1); rc=$?
 if [[ $rc -eq 0 && -f "$tmpdir/.gitignore" ]]; then
   pass "_ensure_cmux_gitignore creates .gitignore when missing"
@@ -64,7 +64,7 @@ fi
 
 # T7: _ensure_cmux_gitignore succeeds on existing .gitignore with pattern
 tmpdir2=$(mktemp -d)
-trap "rm -rf '$tmpdir' '$tmpdir2'" EXIT
+trap 'rm -rf "$tmpdir" "$tmpdir2"' EXIT
 echo '.cmux-*' > "$tmpdir2/.gitignore"
 out=$(bash -c ". '$DISPATCH_COMMON'; _ensure_cmux_gitignore '$tmpdir2'" 2>&1); rc=$?
 if [[ $rc -eq 0 ]]; then
