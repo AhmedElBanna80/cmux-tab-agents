@@ -25,7 +25,12 @@ lint:
 	@bash scripts/dev/lint.sh
 
 test:
-	@for f in scripts/dev/tests/test_*.sh scripts/dev/tests/test-*.sh; do \
+	@for f in \
+		skills/cmux-tab-agents/tests/test-*.sh \
+		skills/cmux-tab-agents/scripts/test-*.sh \
+		skills/cmux-tab-agents/scripts/tests/test_*.sh \
+		scripts/dev/tests/test_*.sh \
+		scripts/dev/tests/test-*.sh; do \
 		[ -f "$$f" ] || continue; \
 		bash "$$f" || exit 1; \
 	done
