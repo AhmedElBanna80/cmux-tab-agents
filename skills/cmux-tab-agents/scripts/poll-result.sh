@@ -3,10 +3,15 @@
 #
 # Usage:
 #   poll-result.sh --worktree PATH --phase PHASE [--timeout SECONDS] [--interval SECONDS]
+#                  [--full] [--frontmatter-only]
 #
 # PHASE ∈ {implementer | spec-reviewer | code-reviewer}.
 # Result files are written by the tab-agent at:
 #   $WORKTREE/.cmux-${PHASE}-result.md
+#
+# Flags:
+#   --full               Emit entire file content (default: truncate to 30 body lines)
+#   --frontmatter-only   Emit only YAML frontmatter (no body)
 #
 # Exit codes:
 #   0 = file appeared and parses (has a `status:` field). Contents printed to stdout.
@@ -19,15 +24,19 @@ WT=""
 PHASE=""
 TIMEOUT=1800
 INTERVAL=5
+FULL_OUTPUT=false
+FRONTMATTER_ONLY=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --worktree) WT="$2"; shift 2 ;;
-    --phase)    PHASE="$2"; shift 2 ;;
-    --timeout)  TIMEOUT="$2"; shift 2 ;;
-    --interval) INTERVAL="$2"; shift 2 ;;
+    --worktree)        WT="$2"; shift 2 ;;
+    --phase)           PHASE="$2"; shift 2 ;;
+    --timeout)         TIMEOUT="$2"; shift 2 ;;
+    --interval)        INTERVAL="$2"; shift 2 ;;
+    --full)            FULL_OUTPUT=true; shift ;;
+    --frontmatter-only) FRONTMATTER_ONLY=true; shift ;;
     -h|--help)
-      sed -n '2,18p' "$0" | sed 's/^# //;s/^#//'
+      sed -n '2,20p' "$0" | sed 's/^# //;s/^#//'
       exit 0
       ;;
     *) echo "poll-result: unknown arg '$1'" >&2; exit 1 ;;
@@ -61,4 +70,48 @@ if ! grep -qE '^status:[[:space:]]*[A-Z_]+' "$RESULT"; then
   exit 2
 fi
 
-cat "$RESULT"
+# Extract frontmatter and body
+frontmatter=""
+body=""
+in_frontmatter=false
+frontmatter_end_count=0
+
+while IFS= read -r line; do
+  if [[ "$line" == "---" ]]; then
+    frontmatter_end_count=$((frontmatter_end_count + 1))
+    if [[ $frontmatter_end_count -eq 1 ]]; then
+      in_frontmatter=true
+      frontmatter+="$line"$'\n'
+    elif [[ $frontmatter_end_count -eq 2 ]]; then
+      frontmatter+="$line"$'\n'
+      in_frontmatter=false
+      continue
+    fi
+  elif [[ $in_frontmatter == true ]]; then
+    frontmatter+="$line"$'\n'
+  elif [[ $frontmatter_end_count -eq 2 ]]; then
+    body+="$line"$'\n'
+  fi
+done < "$RESULT"
+
+# Output based on flags
+if [[ "$FRONTMATTER_ONLY" == true ]]; then
+  echo -n "$frontmatter"
+elif [[ "$FULL_OUTPUT" == true ]]; then
+  cat "$RESULT"
+else
+  # Default: frontmatter + up to 30 body lines + truncation marker if needed
+  echo -n "$frontmatter"
+
+  # Count lines in body
+  body_line_count=$(echo -n "$body" | grep -c . || true)
+
+  if [[ $body_line_count -le 30 ]]; then
+    # Body is short enough, print it all
+    echo -n "$body"
+  else
+    # Truncate: print first 30 lines + marker
+    echo "$body" | head -n 30
+    echo "… (truncated; use --full for entire body) …"
+  fi
+fi

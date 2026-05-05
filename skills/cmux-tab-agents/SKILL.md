@@ -120,6 +120,12 @@ For detailed examples and all parameters, see `references/dispatch-reference.md`
 
 Phases: `implementer | spec-reviewer | code-reviewer`. Returns the result file's contents on stdout, exits 1 on timeout, exit 2 on a malformed file.
 
+**Output modes** (to reduce token cost):
+
+- Default (no flags): YAML frontmatter + first 30 lines of markdown body + truncation marker if body is longer. Use this for routine polling — you usually only need the `status:` and a summary.
+- `--full`: Emit the entire file. Use only when you need the full body (e.g., when `status: ISSUES_FOUND` and you need to read all the concerns, or when `status: BLOCKED` and the blocker description is long).
+- `--frontmatter-only`: Emit only the YAML frontmatter (cheapest read). Use only for status checks when you don't care about the body at all.
+
 Parse the `status:` field to drive next action. See `references/reporting-contract.md` for the full schema.
 
 ## How tab-agents talk to you

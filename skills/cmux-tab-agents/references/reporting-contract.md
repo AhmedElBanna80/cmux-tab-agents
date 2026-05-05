@@ -172,6 +172,12 @@ Exit codes:
 - `1` — timeout reached.
 - `2` — file appeared but malformed (no `status:` field).
 
+**Output modes** (default vs. compact):
+
+- **Default** (no flags): Emits YAML frontmatter + first 30 lines of markdown body + truncation marker if body is longer. Reduces token cost during routine polling.
+- `--full`: Emits the entire file. Use when you need the full body (status is `ISSUES_FOUND`, `BLOCKED`, `DONE_WITH_CONCERNS` with important concerns, etc.).
+- `--frontmatter-only`: Emits only the YAML frontmatter (no body). Cheapest read for status-only checks.
+
 The planner parses the YAML frontmatter to decide the next action. A simple bash one-liner:
 
 ```bash
@@ -184,6 +190,19 @@ case "$STATUS" in
   BLOCKED)            echo "→ assess blocker, escalate or re-dispatch" ;;
   *)                  echo "→ unknown status, escalate" ;;
 esac
+```
+
+If the default truncation mode hides concerns you need, poll again with `--full`:
+
+```bash
+# First poll with default output
+RESULT=$(poll-result.sh --worktree "$WT" --phase implementer)
+STATUS=$(awk -F': *' '/^status:/ {print $2; exit}' <<< "$RESULT")
+
+# If you need the full body, fetch it
+if [[ "$STATUS" == "ISSUES_FOUND" ]] || [[ "$STATUS" == "BLOCKED" ]]; then
+  FULL=$(poll-result.sh --worktree "$WT" --phase implementer --full)
+fi
 ```
 
 ## Slurping all in-flight results
