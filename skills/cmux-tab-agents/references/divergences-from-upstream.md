@@ -5,7 +5,11 @@ This skill is a fork. This page enumerates exactly where it diverges from upstre
 Upstream version: `superpowers/5.0.7` at the time of fork.
 Source files lifted verbatim into this fork are listed inline at the top of each prompt template (see `<!-- copied verbatim ... -->` comments).
 
-## Divergences
+---
+
+## Design-Intentional Divergences
+
+These divergences represent intentional architectural decisions made when forking from upstream `superpowers:subagent-driven-development`. They define the core structure of cmux-tab-agents and should be carefully considered during any re-sync with upstream.
 
 ### 1. Dispatch primitive
 
@@ -47,7 +51,7 @@ Upstream skills don't explicitly forbid `git commit --no-verify` or other hook b
 
 User-driven addition (the user explicitly asked for "never `--no-verify`"). Likely worth proposing back upstream if the maintainers agree.
 
-### 6. Tab lifecycle
+### 6. Idle-open tabs
 
 | Upstream | This fork |
 |---|---|
@@ -55,7 +59,7 @@ User-driven addition (the user explicitly asked for "never `--no-verify`"). Like
 
 The user (or planner) closes tabs manually with `cmux close-surface` once the work is integrated. Two reasons: (1) user can chat with the tab-agent or take over, (2) the tab keeps the seed prompt + scrollback for inspection.
 
-### 7. Three sequential tabs per task (vs. three Agent invocations on shared surface)
+### 7. Three sequential tabs per task
 
 The phase ordering is identical to upstream: implementer first, then spec-reviewer, then code-quality-reviewer. The mechanism differs:
 
@@ -64,11 +68,11 @@ The phase ordering is identical to upstream: implementer first, then spec-review
 
 Implication: re-running a phase (e.g., re-dispatching implementer after review feedback) means a new tab. The old tabs remain. Workspace can accumulate tabs over a long task; user may close finalized phases manually.
 
-### 8. Status pills, log feed, notifications (additive)
+### 8. Status pills
 
 Upstream returns a single text blob. This fork uses cmux sidebar features (`set-status`, `log`, `notify`) so the planner has ambient awareness without parsing transcripts. The status key convention is `<TICKET>-<phase>` and pills are mirrored on both the tab's workspace and the planner's. See `status-conventions.md`.
 
-### 9. `--dangerously-skip-permissions` for tab-agents
+### 9. `--dangerously-skip-permissions`
 
 Upstream `Agent({...})` runs subagents with the same permissions as the caller. This fork starts each tab-agent's `claude` process with `--dangerously-skip-permissions` because:
 
@@ -78,88 +82,128 @@ Upstream `Agent({...})` runs subagents with the same permissions as the caller. 
 
 Risk: a compromised seed prompt could do destructive things in the worktree. Mitigation: worktrees are disposable and trivially recreatable.
 
-### 10. Worktree discovery hierarchy (vs. upstream's directory priority)
+### 10. Worktree discovery hierarchy
 
 Upstream `superpowers:using-git-worktrees` has its own priority logic. This fork's `ensure-worktree.sh` replicates the spirit (env var → per-repo config → project-local `.worktrees` if gitignored → sibling default) without invoking the upstream skill. See `configuration.md`.
 
-### 11. Active push channel back to the planner (additive, not in upstream)
+---
 
-| Upstream | This fork |
-|---|---|
-| Subagent's text blob is the return value; controller waits for it inline | Tab-agent writes a result file (passive) **and** pushes one line into the planner's input box on terminal state (active) |
+## Implementation Drift
 
-Upstream's `Agent({...})` is synchronous — the controller blocks on the call and reads the return value when the subagent finishes. This fork's tab-agents are real `claude` processes running asynchronously in cmux tabs; without an active push, the planner has to poll the result file. The active push (one `cmux send` per tab-agent, only on terminal state) inverts that: the planner's input box becomes an inbox of completed work.
+These divergences represent features and implementation details that emerged during development. They may be less stable than design-intentional divergences and should be reviewed more carefully during re-sync — some may be subsumed by upstream changes, others may reveal genuine improvements worth proposing back.
 
-Mechanism: each dispatch script auto-detects the dispatcher's `surface_ref` via `cmux identify`, threads it through as `{{PLANNER_SURFACE}}` in the seed prompt, and the seed prompt instructs the tab-agent to do exactly one `cmux send` + `cmux send-key enter` on terminal state (`DONE`/`DONE_WITH_CONCERNS`/`BLOCKED`/`NEEDS_CONTEXT` for implementers, `APPROVED`/`ISSUES_FOUND` for reviewers). Boot-time pushes are explicitly forbidden in the prompts to avoid spamming when the planner fans out N agents in parallel.
+### 1. Verification iron law embedded in reviewer prompts
 
-Override mechanism: `--planner-surface <ref>` on any dispatch script. Pass `""` to disable the push channel entirely (pure polling). See `configuration.md` and the "How tab-agents talk to you" section of `SKILL.md` for the full protocol, including the security caveat that the planner must always read the cited result file rather than acting on the pushed message body.
+**Description:** Upstream `verification-before-completion/SKILL.md` defines the iron law for verification discipline. This fork embeds the same language directly into `spec-reviewer-tab-prompt.md` and `code-reviewer-tab-prompt.md` seed prompts, making verification expectations explicit to the reviewers without requiring a separate skill read.
 
-### 12. `--model` parity with upstream Model Selection (additive)
+**Where:** 
+- `prompts/spec-reviewer-tab-prompt.md` (search "Verification Before Completion")
+- `prompts/code-reviewer-tab-prompt.md` (search "Verification Before Completion")
 
-Upstream `superpowers:subagent-driven-development` has a "Model Selection" section recommending cheaper/faster models for mechanical sub-tasks (typing, refactoring) and stronger models for ambiguous design work, exposed via the `model` parameter on `Agent({...})`. This fork adds the `--model <model-id>` flag to all three dispatch scripts (and the shared `_dispatch_common.sh`). When passed, it's appended verbatim to the tab-agent's `claude` boot command (`claude --dangerously-skip-permissions --model <id> --append-system-prompt ...`). When omitted, the tab-agent runs on the user's default model — preserving prior behavior.
+### 2. Hook-bypass scan in reviewer prompts
 
-This brings the fork to per-task model-selection parity with upstream without changing the prompt-level discipline (TDD, verification, hook-bypass prohibition) that the model is bound by.
+**Description:** Reviewers are explicitly instructed to scan the implementer's commit messages and git logs for signs of hook bypass (`--no-verify`, `HUSKY=0`, `LEFTHOOK=0`, etc.). This is an additional safeguard beyond the implementer's discipline — catching any bypass that slipped through.
 
-### 13. Bidirectional planner ↔ agent conversation (v0.2.1, additive)
+**Where:**
+- `prompts/spec-reviewer-tab-prompt.md` (search "hook bypass" or "pre-commit")
+- `prompts/code-reviewer-tab-prompt.md` (search "hook bypass")
+- `references/discipline.md` (section "Hook-bypass is FORBIDDEN")
 
-| Upstream | This fork |
-|---|---|
-| Subagent return value is one text blob; the controller is the only one who can "reply" by spawning a new subagent | Tab-agent terminal state is a push line, **and** the planner can `cmux send --surface <agent-surface>` to inject a reply into the agent's input box, which the agent's TUI processes as a new user-message turn — no re-spawn needed |
+### 3. `--model` flag for per-phase model selection
 
-v0.2.0 (#1) added the agent → planner push direction. v0.2.1 documents the reverse direction explicitly: the same `cmux send` primitive lets the planner reply to any tab-agent it has dispatched, turning the one-line push into a real back-and-forth conversation.
+**Description:** All three dispatch scripts accept a `--model <model-id>` flag to override the user's default model on a per-task basis. This allows mechanical tasks to use cheaper models and ambitious work to use stronger ones, without coupling the choice to individual prompts.
 
-Implications:
+**Where:**
+- `scripts/dispatch-implementer.sh` (argument parsing, line ~30)
+- `scripts/dispatch-spec-reviewer.sh` (argument parsing, line ~30)
+- `scripts/dispatch-code-reviewer.sh` (argument parsing, line ~30)
+- `scripts/_dispatch_common.sh` (resolution and model export, `dispatch_main()` function)
 
-1. **Push moments are an enumeration, not a single moment.** Implementer prompts now list `NEEDS_CONTEXT` / `BLOCKED` / `DONE_WITH_CONCERNS` / `DONE` as legitimate push moments; reviewer prompts list `APPROVED` / `ISSUES_FOUND`. After every push, the agent idles waiting for the planner's reply and processes it as a new user-message turn. Boot-time pushes remain forbidden (they would spam the planner during fan-out).
-2. **For reviewer `ISSUES_FOUND`, the planner has two valid responses** — re-dispatch the implementer (fresh tab, clean context, optionally a different `--model`) or reply directly to the existing implementer's surface (same context, less spawn overhead). Both are documented in `SKILL.md` under "How to talk back to a tab-agent" along with decision criteria.
-3. **Reviewers who receive a planner reply must rewrite their result file.** The result file is the source of truth for downstream consumers; if the planner overrode the verdict but the file still says the old verdict, downstream phases will read stale information. The reviewer prompts now spell out the corrected-result-file rule explicitly.
-4. **Hard-rule override refusal is documented in both directions.** A planner reply that asks the agent to bypass hooks, skip tests, edit outside the worktree, or soften a hook-bypass finding must be REFUSED by the agent — same discipline, just delivered via a different channel. The agent pushes back with `BLOCKED` (implementer) or `ISSUES_FOUND` (reviewers) and idles for an alternative path or human escalation.
-5. **No mechanical changes** to `_dispatch_common.sh` or any script. The channel mechanism was already complete in v0.2.0; v0.2.1 is purely the prompt-level language to *use* it as a conversation, plus the `SKILL.md` planner-side guidance for tracking surfaces and replying.
-6. **Mid-flight pushes skip the result file.** Conversational `NEEDS_CONTEXT` / `BLOCKED` (where the agent will continue after the planner replies) push only — no file write. The push line itself carries the question or blocker; no downstream agent reads the file for these states; the file would be overwritten when the agent reaches a true terminal state. Files are still written for terminal `DONE` / `DONE_WITH_CONCERNS` (and final `BLOCKED` / `NEEDS_CONTEXT` when the agent has decided to give up), since reviewers and code-reviewers need them as the source of truth. This eliminates duplicate work for short-lived conversational exchanges without losing the audit trail or the cross-phase contract.
+### 4. Active push channel to planner's input box
 
-Override mechanism: same as v0.2.0 (`--planner-surface ""` on dispatch disables the channel both ways; the agent won't push and the planner has nowhere documented to reply, falling back to pure polling).
+**Description:** Tab-agents push a one-line status update to the planner's input box on terminal state (DONE, DONE_WITH_CONCERNS, BLOCKED, NEEDS_CONTEXT, APPROVED, ISSUES_FOUND), inverting the polling model. The planner can reply directly to the agent's surface without re-spawning.
 
-### 14. User-configurable model/effort defaults + `/cmux-tab-agents:setup` (v0.3.0, additive)
+**Where:**
+- `references/discipline.md` (section "Report Format and Push Protocol")
+- All three seed prompts (boot sequence, step 2)
+- `scripts/_dispatch_common.sh` (exports `PLANNER_SURFACE`)
 
-v0.2.0 introduced `--model <id>` for per-task model selection. v0.3.0 layers on user and project defaults so model (and effort) selection doesn't require CLI flag noise.
+### 5. Implementer drives spec/code review without planner loop
 
-| Feature | Where |
-|---|---|
-| Resolution order | CLI `--model` / `--effort` > env var `CMUX_TAB_AGENTS_DEFAULT_MODEL` / `CMUX_TAB_AGENTS_DEFAULT_EFFORT` > per-repo `.claude/cmux-tab-agents.toml` keys `default_model` / `default_effort` > user-global `~/.claude/cmux-tab-agents.toml`, same keys > unset |
-| Interactive setup | `/cmux-tab-agents:setup` slash command (walks user through model/effort choice, save location, and optional per-repo settings like `worktree_base`) |
-| TOML keys | `default_model` (e.g. `claude-sonnet-4-6`) and `default_effort` (e.g. `high`, one of `low` / `medium` / `high` / `xhigh` / `max`) |
-| Backward-compatible | Yes — unset defaults yield same behavior as v0.2.0; only env vars or TOML change behavior |
-| Bootstrap integration | No script changes; resolution happens in `_dispatch_common.sh`'s `dispatch_main()`, and the resolved values are passed to claude boot as `--model <id> --effort <level>` (omitted if empty) |
+**Description:** The implementer seed prompt includes a task-lead section allowing the implementer to auto-dispatch spec-reviewer and code-reviewer surfaces on terminal state (with `--lead-surface` flag), creating a self-contained review loop. The planner optionally monitors via status pills and result files.
 
-Rationale: per-task model selection keeps prompt discipline tight (TDD, verification, hook-bypass prohibition) while letting mechanical work use cheaper models and ambitious work use stronger ones — without flag clutter. Now defaults (via env or config) enable the same choice without flagging every dispatch.
+**Where:**
+- `prompts/implementer-tab-prompt.md` (search "Task lead setup" or "auto-dispatch")
+- `scripts/dispatch-implementer.sh` (accepts `--lead-surface` flag)
+- `scripts/_dispatch_common.sh` (threads lead surface through template substitution)
 
-### 15. Verification artifact for reviewers (v0.3.0, additive)
+### 6. `--finish-mode` flag for automated task completion
 
-| Upstream | This fork |
-|---|---|
-| Reviewers always re-run full verification (tests, lint, build, hooks) | Reviewers may optionally reduce re-verification scope if the implementer's verification artifact is fresh and consistent |
+**Description:** The implementer script accepts `--finish-mode` to enable automated post-review task completion. When this flag is set, a finish script runs after code-reviewer approval, packaging the result and marking the task done without manual planner intervention.
 
-The implementer writes a `.cmux-implementer-verification.json` artifact alongside its result file, capturing the results of its own verification commands (tests, lint, build, hooks). The artifact includes the commit sha, a timestamp, and the status of each verification step.
+**Where:**
+- `scripts/dispatch-implementer.sh` (argument parsing, search `--finish-mode`)
+- `scripts/finish-task.sh` (automation script that runs post-review)
 
-When reading the artifact, reviewers check:
-1. Is `implementer_sha` the current HEAD commit?
-2. Is `timestamp` recent (within last hour)?
-3. Are all status fields `passed` (not `failed` or `skipped`)?
+### 7. `{{SKILL_BASE}}` placeholder for discipline.md resolution
 
-If all three checks pass, reviewers **may** downgrade to spot-checks (subset of tests, skim lint output, confirm hook claim). If any check fails, reviewers perform full re-verification and flag the artifact state as a concern.
+**Description:** Seed prompts read `discipline.md` from `{{SKILL_BASE}}/references/discipline.md` instead of the worktree path. This allows cmux-tab-agents to be used from consumer repos where the skill isn't installed locally. The placeholder resolves to the installed skill directory at dispatch time.
 
-**Why:** Implementer verification is expensive—two independent full re-runs on every task (spec-reviewer + code-reviewer) plus more on review loops. The artifact is a hint, not a substitute for skepticism. Reviewers remain in control: full re-run always remains the fallback when anything looks off.
+**Where:**
+- All three seed prompts (boot sequence, step 1: read discipline from `{{SKILL_BASE}}`)
+- `scripts/_dispatch_common.sh` (computes and exports `SKILL_BASE`)
+- `scripts/dev/render-prompt.sh` (dev rendering includes SKILL_BASE allowlist)
 
-**Honest reporting required:** Implementer must report failed or skipped steps accurately in the artifact; reviewers will full-re-verify if they see failures/omissions.
+### 8. Result file size caps to prevent context bloat
 
-See `references/reporting-contract.md` for schema and `prompts/implementer-tab-prompt.md` for implementer instructions.
+**Description:** Result files are capped at ≤200 lines (excluding YAML frontmatter). Verbose output (test logs, build traces, diffs) must be written to sibling files (e.g., `.cmux-implementer-verification.txt`) and referenced from the result. This prevents large output from consuming downstream context.
 
-## Re-syncing
+**Where:**
+- `references/reporting-contract.md` (section "Result file size limits")
+- All three seed prompts (final step: self-check file size before completion)
+- `skills/cmux-tab-agents/references/discipline.md` (hard rule in "Hard Rules")
 
-When upstream `superpowers/X.Y.Z` ships:
+### 9. Skip-trivial-review heuristic for code-reviewer
 
-1. `diff` upstream's `subagent-driven-development/SKILL.md` against the section comments referenced in this fork's `SKILL.md`. Forward-port any meaningful changes.
-2. `diff` upstream's three prompt templates against this fork's three. Forward-port everything that isn't a cmux-specific shim.
-3. `diff` upstream's `test-driven-development/SKILL.md` and `verification-before-completion/SKILL.md` against the verbatim sections in `prompts/implementer-tab-prompt.md`. The marker comments at the top of each verbatim section identify the source path and version.
-4. Bump the version comment marker.
-5. Update this page if the divergence list changed.
+**Description:** Code-reviewer can be skipped for diffs ≤30 lines that are test-only, doc-only, or changelog-only changes. A helper script automates the decision; planner can conditionally dispatch only spec-reviewer for trivial changes.
+
+**Where:**
+- `scripts/should-skip-code-review.sh` (heuristic implementation)
+- `references/skip-heuristics.md` (decision criteria and examples)
+
+### 10. Different SKILL.md workflow examples
+
+**Description:** The SKILL.md examples assume a worktree-based workflow (dispatch distinct tabs in sequence, read result files, push to planner). Upstream examples assume in-process Agent invocations (synchronous return, shared context). Examples are not part of upstream verbatim sections and should be reviewed during re-sync.
+
+**Where:**
+- `SKILL.md` (entire planner-side guidance section, examples in "Typical workflows")
+- Upstream comparison: `superpowers:subagent-driven-development/SKILL.md` examples section
+
+---
+
+## Re-syncing with Upstream
+
+When upstream `superpowers/X.Y.Z` ships, follow this procedure to assess and forward-port changes:
+
+**Stage 1: Design-intentional divergences**
+
+1. `diff` upstream's `subagent-driven-development/SKILL.md` against the section comments referenced in this fork's `SKILL.md`. Forward-port any meaningful changes to the fork's SKILL.md.
+2. `diff` upstream's three prompt templates (`implementer-tab-prompt.md`, `spec-reviewer-tab-prompt.md`, `code-reviewer-tab-prompt.md`) against this fork's three. Forward-port everything that isn't a cmux-specific shim (i.e., forward-port discipline updates, but keep the `{{WORKTREE}}` paths, result-file contract, and push protocol).
+3. `diff` upstream's `test-driven-development/SKILL.md` and `verification-before-completion/SKILL.md` against the verbatim sections in this fork's `prompts/implementer-tab-prompt.md`. The marker comments at the top of each verbatim section (`<!-- Verbatim from superpowers ... -->`) identify the source path and version. Forward-port any discipline updates.
+4. Bump the version comment marker in the verbatim sections if anything changed.
+
+**Stage 2: Implementation drift**
+
+Review each item in the "Implementation Drift" section above:
+
+- Items 1-2 (verification, hook-bypass): These embed discipline from upstream. If upstream discipline changes, update both the embedded language and `references/discipline.md`.
+- Items 3-6 (model, push, lead-surface, finish-mode): These are cmux-specific features. Unlikely to conflict with upstream; keep as-is unless upstream adds equivalent capabilities.
+- Item 7 (SKILL_BASE): Resolution logic in `_dispatch_common.sh`. Keep as-is unless upstream changes how skills resolve paths.
+- Items 8-9 (result file caps, skip heuristic): New constraints. Check if upstream adopts similar limits; if so, align.
+- Item 10 (SKILL.md examples): Compare with upstream examples. Update to match upstream structure, but preserve worktree-workflow assumptions.
+
+**Stage 3: Update this page**
+
+- Renumber design-intentional divergences if items shift.
+- Add or remove implementation-drift items if the picture changes.
+- Update the "Upstream version" marker at the top.

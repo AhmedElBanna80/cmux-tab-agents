@@ -59,6 +59,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- **ISSUE-3: Exhaustive drift list in divergences-from-upstream.md** — Restructured `skills/cmux-tab-agents/references/divergences-from-upstream.md` into two sections: "Design-intentional divergences" (10 items describing core architectural decisions from the fork) and "Implementation drift" (10 items documenting features and details that emerged during development). Each item in the new drift section includes file paths and line references for traceability. Updated the re-sync guide to distinguish between design decisions and implementation details, with separate assessment procedures for each category.
+
 ### Added
 
 - **ISSUE-17: Cache-friendly seed prompt rendering** — Restructured all tab-agent seed prompts (implementer, spec-reviewer, code-reviewer) to separate static prefix from dynamic task context tail. The static prefix (containing ~95% of the prompt text) is now byte-identical across dispatches, enabling Anthropic's 5-minute auto-cache to reuse it across multiple tab-agent spawns. This reduces token costs by caching the stable prefix once and only paying for the small task-specific tail per dispatch.
