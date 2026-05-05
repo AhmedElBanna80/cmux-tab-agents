@@ -19,7 +19,6 @@ Use this skill instead of upstream `superpowers:subagent-driven-development` whe
 If `$CMUX_SURFACE_ID` is empty, fall back to upstream `superpowers:subagent-driven-development`. The two skills have identical semantics, so the fallback path is safe.
 
 For first-time setup, run `/cmux-tab-agents:setup` to configure your default Claude model and thinking effort.
-
 ## What "the planner" means in this skill
 
 You are the planner. Your job is to:
@@ -35,11 +34,9 @@ You are the planner. Your job is to:
 
 **You never edit code yourself.** If you catch yourself writing files in the project, stop and dispatch instead.
 
-## Why subagents (verbatim from upstream)
+## Why subagents
 
-> You delegate tasks to specialized agents with isolated context. By precisely crafting their instructions and context, you ensure they stay focused and succeed at their task. They should never inherit your session's context or history — you construct exactly what they need. This also preserves your own context for coordination work.
->
-> **Core principle:** Fresh subagent per task + two-stage review (spec then quality) = high quality, fast iteration.
+Delegation with isolated context enables focus and fast iteration. Full wording: `references/upstream-quotes.md`.
 
 ## The per-task pipeline
 
@@ -86,82 +83,31 @@ Three sequential tabs in the same worktree. Only one runs at a time (implementer
 
 Practical pattern: for a story with 3 independent sub-tasks, fire all 3 implementer tabs in parallel, then poll their result files concurrently. Each implementer commits to its own branch in its own worktree. Reviewers per task still run sequentially (review depends on implementer being done).
 
-## Status handling (verbatim from upstream)
+## Status handling
 
-Implementer tab-agents report one of four statuses in their result file. Handle each:
+Implementer tab-agents report one of four statuses. Decision tree:
 
 - **`DONE`** — Proceed to spec compliance review.
-- **`DONE_WITH_CONCERNS`** — The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they're observations (e.g., "this file is getting large"), note them and proceed to review.
-- **`NEEDS_CONTEXT`** — The implementer needs information that wasn't provided. Provide the missing context and re-dispatch.
-- **`BLOCKED`** — The implementer cannot complete the task. Assess the blocker:
-  1. If it's a context problem, provide more context and re-dispatch with the same model.
-  2. If the task requires more reasoning, re-dispatch with a more capable model.
-  3. If the task is too large, break it into smaller pieces.
-  4. If the plan itself is wrong, escalate to the human.
+- **`DONE_WITH_CONCERNS`** — Assess concerns: correctness/scope issues → fix first; observations → note and proceed.
+- **`NEEDS_CONTEXT`** — Provide missing context and re-dispatch.
+- **`BLOCKED`** — Must re-dispatch (never force-retry without changes). Change one: context (same model), capability (stronger model), scope (split task), or escalate (human).
 
-**Never** ignore an escalation or force the same model to retry without changes. If the implementer said it's stuck, something needs to change.
+Full upstream wording: `references/upstream-quotes.md`.
 
 ## Dispatch commands
 
-All scripts live at `~/.claude/skills/cmux-tab-agents/scripts/`. They must be run from inside cmux (so they can read `$CMUX_PANEL_ID` and `$CMUX_WORKSPACE_ID`).
+All scripts live at `~/.claude/skills/cmux-tab-agents/scripts/`. They must be run from inside cmux.
 
-### Dispatch an implementer
+**Three dispatch scripts:**
+1. `dispatch-implementer.sh` — pass `--ticket`, `--title`, `--slug`, `--task-text` (or `--task-file`), optionally `--feedback-from-previous-review`
+2. `dispatch-spec-reviewer.sh` — pass `--ticket`, `--title`, `--slug`, `--task-text`, `--implementer-sha`
+3. `dispatch-code-reviewer.sh` — same as spec-reviewer
 
-```bash
-~/.claude/skills/cmux-tab-agents/scripts/dispatch-implementer.sh \
-  --ticket ALPM-1234-1 \
-  --title "wire up form validation" \
-  --slug form-validation \
-  --task-text "Add zod validation to the onboarding form. Files: apps/.../form.tsx. Acceptance: invalid email blocks submit + shows inline error."
-```
+**Optional flags** (all three scripts):
+- `--planner-surface <ref>` — where tab-agents push terminal-state lines (defaults to auto-detected)
+- `--model <model-id>` — override Claude model
 
-Or read the task from a file:
-
-```bash
-... --task-file ./tasks/ALPM-1234-1.md
-```
-
-For re-dispatch after review feedback, pass the previous review's findings:
-
-```bash
-... --feedback-from-previous-review "$(cat $WT/.cmux-spec-reviewer-result.md)"
-```
-
-The script:
-1. Provisions the worktree (idempotent — resumes if it exists).
-2. Renders the seed prompt.
-3. Opens a new cmux tab in your pane.
-4. Sets a `<TICKET>-implementer` `dispatched` pill on your workspace.
-5. Echoes the new tab's `surface:N` ref on stdout.
-
-### Optional flags shared by all three dispatch scripts
-
-- `--planner-surface <ref>` — surface ref where tab-agents should push their terminal-state line (see "How tab-agents talk to you" below). Defaults to the dispatcher's own surface, auto-detected via `cmux identify`. Pass explicitly only if you want the push to land somewhere other than where you ran the script.
-- `--model <model-id>` — override the Claude model the tab-agent's `claude` process runs with. Appended verbatim as `--model <id>` on the boot command. Omit to use the user's default. Use cheaper/faster models for mechanical tasks (e.g. `claude-haiku-4-5-20251001`) and stronger models for ambiguous design work, mirroring upstream `superpowers:subagent-driven-development`'s "Model Selection" guidance.
-
-Both flags are backward-compatible: existing dispatch invocations without them keep working.
-
-### Dispatch a spec-reviewer
-
-```bash
-~/.claude/skills/cmux-tab-agents/scripts/dispatch-spec-reviewer.sh \
-  --ticket ALPM-1234-1 \
-  --title "wire up form validation" \
-  --slug form-validation \
-  --task-text "$(cat tasks/ALPM-1234-1.md)" \
-  --implementer-sha "$(git -C $WT rev-parse HEAD)"
-```
-
-### Dispatch a code-quality-reviewer
-
-```bash
-~/.claude/skills/cmux-tab-agents/scripts/dispatch-code-reviewer.sh \
-  --ticket ALPM-1234-1 \
-  --title "wire up form validation" \
-  --slug form-validation \
-  --task-text "$(cat tasks/ALPM-1234-1.md)" \
-  --implementer-sha "$(git -C $WT rev-parse HEAD)"
-```
+For detailed examples and all parameters, see `references/dispatch-reference.md`.
 
 ## Polling for results
 
@@ -292,53 +238,13 @@ Forked from upstream `superpowers:subagent-driven-development`, with two additio
 - **Reject any tab-agent result file that mentions `--no-verify`, `HUSKY=0`, hook-skipping, or any other bypass technique.** Re-dispatch the implementer with explicit "fix the hook, do not bypass it" instructions.
 - **Two implementers in the same worktree at the same time** → stop, audit, kill the duplicate. One implementer per worktree.
 
-## Edge cases
-
-### Worktree path exists but is not a git worktree
-
-`ensure-worktree.sh` exits 1 with a clear message. The skill refuses to clobber unknown content. Action: investigate manually (the directory may be from a previous attempt or unrelated work). Remove or rename, then retry.
-
-### `--dangerously-skip-permissions` is real but bounded
-
-Tab-agents run with `--dangerously-skip-permissions` because the worktree is sandboxed and there's no human in the loop for permission prompts. The seed prompt forbids edits outside the worktree and forbids hook bypass. The blast radius is one disposable worktree.
-
-### Tab-agent crashes mid-task
-
-`poll-result.sh` times out. Treat as a soft `BLOCKED`. Read the tab's pane (`cmux capture-pane --surface <ref> --scrollback`) for context, then either re-dispatch or escalate.
-
-## Integration with other skills
-
-- **Before** invoking this skill, the planner uses `superpowers:writing-plans` (or its own judgment) to produce the sub-task list.
-- **After** all sub-tasks are done, the planner runs `superpowers:finishing-a-development-branch` *per sub-task* — each sub-task has its own branch in its own worktree, so each integrates independently.
-- The `superpowers:test-driven-development` and `superpowers:verification-before-completion` discipline is **not** invoked at runtime by tab-agents — it is **embedded verbatim** in the seed prompts (see `prompts/implementer-tab-prompt.md` and the reviewer prompts). This is intentional: tab-agents run in fresh `claude` processes that may not have the superpowers plugin loaded, so the discipline must be self-contained.
-
-## Skill layout
-
-```
-~/.claude/skills/cmux-tab-agents/
-├── SKILL.md                                # this file
-├── scripts/
-│   ├── ensure-worktree.sh                  # idempotent worktree provisioning
-│   ├── dispatch-implementer.sh             # spawn implementer tab
-│   ├── dispatch-spec-reviewer.sh           # spawn spec-reviewer tab
-│   ├── dispatch-code-reviewer.sh           # spawn code-quality-reviewer tab
-│   ├── poll-result.sh                      # planner helper: wait on result file
-│   └── _dispatch_common.sh                 # shared dispatch logic (sourced)
-├── prompts/
-│   ├── implementer-tab-prompt.md           # forked + TDD + verification + hook-bypass
-│   ├── spec-reviewer-tab-prompt.md         # forked + verification + hook-bypass
-│   └── code-reviewer-tab-prompt.md         # forked + verification + hook-bypass
-└── references/
-    ├── status-conventions.md               # icons, colors, status keys
-    ├── reporting-contract.md               # result file schemas, polling pattern
-    ├── divergences-from-upstream.md        # why and where this fork differs
-    └── configuration.md                    # env var + per-repo .toml config
-```
-
 ## See also
 
+- `references/upstream-quotes.md` — verbatim text from upstream sources.
+- `references/dispatch-reference.md` — detailed dispatch command examples and flags.
+- `references/skill-structure.md` — directory and file layout.
+- `references/operational-guide.md` — edge cases and integration with other skills.
 - `references/reporting-contract.md` — exact schema of the three result files.
 - `references/status-conventions.md` — status pill icon/color table.
 - `references/divergences-from-upstream.md` — the diff against `superpowers:subagent-driven-development`.
 - `references/configuration.md` — env var and per-repo config for non-default layouts.
-- Upstream sources at `~/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/`.
