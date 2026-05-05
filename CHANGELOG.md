@@ -5,6 +5,13 @@ All notable changes to cmux-tab-agents will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.4.0...cmux-tab-agents-v0.5.0) (2026-05-05)
+
+
+### Features
+
+* **ISSUE-26:** implementer as task lead — agent-to-agent review loop without planner ([#50](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/50)) ([d8e7a2d](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/d8e7a2d29c4086853ed574d7d1f07f2c8789b004))
+
 ## [0.4.0](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.3.0...cmux-tab-agents-v0.4.0) (2026-05-05)
 
 
