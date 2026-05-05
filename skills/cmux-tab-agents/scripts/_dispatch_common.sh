@@ -21,6 +21,8 @@ Usage: $0 --ticket TICKET --title TITLE --slug SLUG \\
           [--implementer-sha SHA] \\
           [--feedback-from-previous-review TEXT_OR_PATH] \\
           [--finish-mode MODE] \\
+          [--lead-surface REF] \\
+          [--max-loop-iterations N] \\
           [--fix-only]
 EOF
   exit 1
