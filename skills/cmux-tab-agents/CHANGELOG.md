@@ -17,8 +17,15 @@ All notable changes to the cmux-tab-agents skill are documented here.
     - Report format and push protocol (shared principles)
     - Core hard rules
   - Net result: 41% reduction in combined seed prompt size; per-task token cost reduced (discipline reference may be cached or shared across tasks)
+- **SKILL.md refactored for clarity (ISSUE-24):** Moved verbatim upstream quote blocks to `references/upstream-quotes.md`, reducing main documentation from ~370 lines to 249 lines.
+  - "Why subagents" section replaced with 1-line summary + reference.
+  - "Status handling" section tightened with decision-critical rules condensed; full upstream wording moved to reference.
+  - Dispatch command examples moved to `references/dispatch-reference.md` for more compact main guide.
+  - Skill directory structure moved to `references/skill-structure.md`.
+  - Edge cases and integration with other skills moved to `references/operational-guide.md`.
+  - "See also" section expanded to list all reference documents.
 
-### Details
+### Details (ISSUE-16)
 - Created `references/discipline.md` with verbatim discipline language from:
   - `superpowers:test-driven-development @ 5.0.7`
   - `superpowers:verification-before-completion @ 5.0.7`
@@ -26,3 +33,9 @@ All notable changes to the cmux-tab-agents skill are documented here.
 - Refactored all three seed prompts to replace inline discipline sections with pointers to the reference
 - No discipline rules were lost in migration; all stable content is preserved verbatim
 - Dispatch rendering verified to correctly substitute `{{WORKTREE}}` placeholder for discipline file path
+
+### New (ISSUE-24)
+- `references/upstream-quotes.md` — Verbatim text from upstream `superpowers:subagent-driven-development`.
+- `references/dispatch-reference.md` — Detailed dispatch script examples and all command-line flags.
+- `references/skill-structure.md` — Skill directory and file organization.
+- `references/operational-guide.md` — Troubleshooting (edge cases) and skill integration notes.
