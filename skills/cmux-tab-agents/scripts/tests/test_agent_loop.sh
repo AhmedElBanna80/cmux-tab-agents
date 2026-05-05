@@ -55,7 +55,6 @@ Lead surface is: {{LEAD_SURFACE}}
 EOF
 (
   # shellcheck source=/dev/null
-  # shellcheck source=/dev/null
   . "$DISPATCH_COMMON"
   TPL_TICKET="" TPL_TITLE="" TPL_SLUG="" TPL_WORKTREE="" TPL_PWS="" \
   TPL_PSURF="" TPL_IMPL_SHA="" TPL_TASK="" TPL_FEEDBACK="" \
@@ -75,7 +74,6 @@ cat > "$tmpdir/tpl2.md" <<'EOF'
 Max iterations: {{MAX_LOOP_ITERATIONS}}
 EOF
 (
-  # shellcheck source=/dev/null
   # shellcheck source=/dev/null
   . "$DISPATCH_COMMON"
   TPL_TICKET="" TPL_TITLE="" TPL_SLUG="" TPL_WORKTREE="" TPL_PWS="" \
@@ -239,6 +237,7 @@ fi
 # T20: Rendered implementer prompt contains circuit-breaker prose (same issue twice → BLOCKED)
 if [[ -r "$impl_prompt" ]]; then
   (
+    # shellcheck source=/dev/null
     . "$DISPATCH_COMMON"
     TPL_TICKET="TEST-1" TPL_TITLE="Test" TPL_SLUG="test" TPL_WORKTREE="/tmp/wt" \
     TPL_PWS="surface:1" TPL_PSURF="surface:0" TPL_IMPL_SHA="abc1234" \
@@ -260,6 +259,7 @@ fi
 # T21: Rendered implementer prompt with MAX_LOOP_ITERATIONS=3 contains "3" and BLOCKED
 if [[ -r "$impl_prompt" ]]; then
   (
+    # shellcheck source=/dev/null
     . "$DISPATCH_COMMON"
     TPL_TICKET="TEST-1" TPL_TITLE="Test" TPL_SLUG="test" TPL_WORKTREE="/tmp/wt" \
     TPL_PWS="surface:1" TPL_PSURF="surface:0" TPL_IMPL_SHA="abc1234" \
