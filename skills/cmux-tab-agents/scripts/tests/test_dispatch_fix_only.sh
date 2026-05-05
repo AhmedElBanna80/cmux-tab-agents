@@ -23,7 +23,7 @@ else fail "bash -n _dispatch_common.sh (syntax error)"; fi
 # We source and call dispatch_main with minimal args but it will fail on validation,
 # which we check for a specific error, not a parse error
 tmpdir=$(mktemp -d)
-trap "rm -rf '$tmpdir'" EXIT
+trap 'rm -rf "$tmpdir"' EXIT
 out=$(cd "$tmpdir" && bash -c "
   . '$DISPATCH_COMMON'
   dispatch_main --ticket TEST-1 --title 'Test' --slug test --fix-only --feedback-from-previous-review 'feedback' 2>&1

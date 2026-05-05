@@ -15,7 +15,7 @@ fail() { printf 'FAIL: %s\n' "$1"; FAIL=$((FAIL+1)); }
 printf '=== --fix-only integration: prompt rendering ===\n\n'
 
 tmpdir=$(mktemp -d)
-trap "rm -rf '$tmpdir'" EXIT
+trap 'rm -rf "$tmpdir"' EXIT
 
 # Verify that render_template is available and works
 source "$SCRIPTS_DIR/_dispatch_common.sh"
