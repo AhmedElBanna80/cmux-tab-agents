@@ -42,6 +42,42 @@ last_commit: abc1234...
 <bullet list, or "none">
 ```
 
+## Size limits
+
+Result files must respect these limits to avoid inflating downstream contexts (next phase's seed, planner's context).
+
+### Per-field limits
+
+- **`summary`**: ≤ 200 words. Concise 2–3 sentence recap of what was done or attempted.
+- **`concerns` / `issues` / other structured fields**: ≤ 10 bullets per section. Each bullet ≤ 25 words.
+
+### File-level limits
+
+- **Total length**: ≤ 200 lines (excluding YAML frontmatter).
+- **Verbose detail** (e.g., test output, stack traces, long diffs, lengthy logs): write to a sibling file (e.g., `.cmux-implementer-verification.txt`, `.cmux-spec-reviewer-details.txt`, `.cmux-code-reviewer-issues.txt`) and **reference** it from the result file, do NOT inline.
+
+### Example
+
+Instead of inlining 500 lines of test output in `## Tests`:
+
+```markdown
+## Tests
+Ran: `npm test`; 47/47 pass. (Full output: `.cmux-implementer-verification.txt`)
+```
+
+Or for a concern:
+
+```markdown
+## Concerns / blockers / context needed
+- File `src/core/handlers.ts` grew to 1200 lines; consider splitting. (Details: `.cmux-implementer-details.txt`)
+```
+
+### Contract violation?
+
+If a result file exceeds these limits, the next phase or planner can reject it as `ISSUES_FOUND`-grade, and the implementer / reviewer will need to edit and re-submit.
+
+---
+
 Status semantics (lifted from `superpowers:subagent-driven-development`):
 
 - `DONE` — work complete, all checks pass, no concerns.

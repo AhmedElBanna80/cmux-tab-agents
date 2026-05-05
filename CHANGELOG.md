@@ -28,6 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Planner can now safely skip code-reviewer phase for test-only, doc-only, and changelog-only changes ≤30 lines
   - All changes require spec-reviewer approval with no concerns flagged
   - Skipping is optional; planner remains in control
+- **Result file size caps (ISSUE-19)**: Enforced size limits in `references/reporting-contract.md` to prevent context bloat:
+  - `summary` field: ≤ 200 words
+  - `concerns` / issue sections: ≤ 10 bullets, each ≤ 25 words
+  - Total result file: ≤ 200 lines (excluding YAML frontmatter)
+  - Agents must write verbose detail (test output, traces, diffs) to sibling files (e.g., `.cmux-implementer-verification.txt`) and reference them from the result.
+- Updated seed prompts (`implementer-tab-prompt.md`, `spec-reviewer-tab-prompt.md`, `code-reviewer-tab-prompt.md`) to enforce size limits and include self-check step before declaring completion.
 
 ### Changed
 
