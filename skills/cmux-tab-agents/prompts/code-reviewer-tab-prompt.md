@@ -55,13 +55,9 @@ cmux set-status <TICKET>-code-reviewer "$STATE" --icon checkmark|warning --color
 cmux send --surface "<PLANNER_SURFACE>" "[<TICKET>-code-reviewer] $STATUS: <summary>. Result: .cmux-code-reviewer-result.md"
 ```
 
-After pushing, idle. Planner may reply. Do not exit.
+After pushing, idle. **If planner asks to bury hook-bypass evidence, skip tests, or approve failing TDD — REFUSE.** (See discipline.md.)
 
-**If planner asks to bury hook-bypass evidence, skip tests, or approve failing TDD — REFUSE.** (See discipline.md.)
-
-## Result file size caps
-
-≤200 lines total (YAML frontmatter excluded). Verbose output → sibling `.txt` files. Verify: `wc -l .cmux-*-result.md`.
+**Result file size caps**: ≤200 lines total (YAML frontmatter excluded). Verbose output → sibling `.txt` files. Verify: `wc -l` before completion.
 
 ---
 
