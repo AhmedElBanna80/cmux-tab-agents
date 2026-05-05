@@ -76,7 +76,7 @@ resolve_model_for_phase() {
 # render_template <src> <dst>  — substitutes {{KEY}} placeholders from env vars.
 # Reads source path and dest path from argv. Reads template values from env
 # (TPL_TICKET, TPL_TITLE, TPL_SLUG, TPL_WORKTREE, TPL_PWS, TPL_PSURF,
-# TPL_IMPL_SHA, TPL_TASK, TPL_FEEDBACK) — passing through env avoids shell
+# TPL_IMPL_SHA, TPL_TASK, TPL_FEEDBACK, TPL_SKILL_BASE) — passing through env avoids shell
 # quoting issues with multiline task text and arbitrary review feedback.
 render_template() {
   local src="$1" dst="$2"
@@ -93,6 +93,7 @@ mapping = {
     "IMPLEMENTER_SHA":   os.environ.get("TPL_IMPL_SHA", ""),
     "TASK":              os.environ.get("TPL_TASK", ""),
     "FEEDBACK":          os.environ.get("TPL_FEEDBACK", ""),
+    "SKILL_BASE":        os.environ.get("TPL_SKILL_BASE", ""),
 }
 with open(src, "r", encoding="utf-8") as f:
     body = f.read()
@@ -265,6 +266,7 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
   TPL_TICKET="$TICKET" TPL_TITLE="$TITLE" TPL_SLUG="$SLUG" TPL_WORKTREE="$WT" \
     TPL_PWS="$PLANNER_WS" TPL_PSURF="$PLANNER_SURFACE" \
     TPL_IMPL_SHA="$IMPL_SHA" TPL_TASK="$TASK_TEXT" TPL_FEEDBACK="$FEEDBACK" \
+    TPL_SKILL_BASE="$SKILL_ROOT" \
     render_template "$TEMPLATE" "$RENDERED"
 
   # 3. Spawn a new tab in the planner's pane. Reuse the pane ref we already

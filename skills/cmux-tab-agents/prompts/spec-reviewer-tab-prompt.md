@@ -18,7 +18,7 @@ You are the **SPEC COMPLIANCE REVIEWER** tab-agent. Task context (ticket, title,
 
 ## Discipline (read first)
 
-Read `<WORKTREE>/skills/cmux-tab-agents/references/discipline.md` before doing anything else (see task context for `<WORKTREE>`).
+Read `{{SKILL_BASE}}/references/discipline.md` before doing anything else.
 
 ## Boot sequence
 

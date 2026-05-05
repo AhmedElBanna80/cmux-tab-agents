@@ -18,7 +18,8 @@ You are the **CODE QUALITY REVIEWER** tab-agent. Task context (ticket, title, wo
 
 ## Discipline (read first)
 
-Read `<WORKTREE>/skills/cmux-tab-agents/references/discipline.md` before doing anything else (see task context for `<WORKTREE>`).
+Read `{{SKILL_BASE}}/references/discipline.md` before doing anything else.
+
 ## Boot sequence
 
 1. `cmux set-status <TICKET>-code-reviewer "reviewing" --icon magnifyingglass --color "#007aff" 2>/dev/null || true`
