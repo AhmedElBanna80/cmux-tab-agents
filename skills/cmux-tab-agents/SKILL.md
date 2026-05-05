@@ -269,11 +269,4 @@ Forked from upstream `superpowers:subagent-driven-development`, with two additio
 
 ## See also
 
-- `references/upstream-quotes.md` — verbatim text from upstream sources.
-- `references/dispatch-reference.md` — detailed dispatch command examples and flags.
-- `references/skill-structure.md` — directory and file layout.
-- `references/operational-guide.md` — edge cases and integration with other skills.
-- `references/reporting-contract.md` — exact schema of the three result files.
-- `references/status-conventions.md` — status pill icon/color table.
-- `references/divergences-from-upstream.md` — the diff against `superpowers:subagent-driven-development`.
-- `references/configuration.md` — env var and per-repo config for non-default layouts.
+References: `dispatch-reference.md` (dispatch examples), `configuration.md` (config), `operational-guide.md` (edge cases), `reporting-contract.md`, `upstream-quotes.md`, `skill-structure.md`, `status-conventions.md`.
