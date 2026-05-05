@@ -128,5 +128,24 @@ else
 fi
 cleanup_test_repo "$tmpdir"
 
+# Test 8: Hyphenated phase names (spec-reviewer, code-reviewer) are normalized to underscores
+tmpdir=$(setup_test_repo "[models]\nspec_reviewer = \"claude-opus-4-7\"\ncode_reviewer = \"claude-haiku-4-5-20251001\"")
+trap "cleanup_test_repo '$tmpdir'" EXIT
+out=$(run_resolve_in_repo "$tmpdir" spec-reviewer)
+if [[ "$out" == "claude-opus-4-7" ]]; then
+  pass "resolve_model_for_phase: hyphenated 'spec-reviewer' resolves to underscore config 'spec_reviewer'"
+else
+  fail "resolve_model_for_phase: spec-reviewer expected 'claude-opus-4-7', got '$out'"
+fi
+
+# Test 9: Hyphenated code-reviewer
+out=$(run_resolve_in_repo "$tmpdir" code-reviewer)
+if [[ "$out" == "claude-haiku-4-5-20251001" ]]; then
+  pass "resolve_model_for_phase: hyphenated 'code-reviewer' resolves to underscore config 'code_reviewer'"
+else
+  fail "resolve_model_for_phase: code-reviewer expected 'claude-haiku-4-5-20251001', got '$out'"
+fi
+cleanup_test_repo "$tmpdir"
+
 printf '\n=== Results: %d passed, %d failed ===\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]
