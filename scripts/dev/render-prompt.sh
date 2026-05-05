@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Canonical allowlist — must match _dispatch_common.sh render_template mapping.
 # PLANNER_SURFACE included for forward compatibility (not yet handled in dispatch).
-ALLOWLIST="TICKET TITLE SLUG WORKTREE PLANNER_WORKSPACE PLANNER_SURFACE TASK IMPLEMENTER_SHA FEEDBACK SKILL_BASE"
+ALLOWLIST="TICKET TITLE SLUG WORKTREE PLANNER_WORKSPACE PLANNER_SURFACE TASK IMPLEMENTER_SHA FEEDBACK SKILL_BASE FINISH_MODE"
 
 # Sample defaults used when --values does not override a key.
 _DEF_TICKET="ALPM-DEV-1"
@@ -68,7 +68,8 @@ _RENDER_TASK="$_DEF_TASK" \
 _RENDER_FEEDBACK="$_DEF_FEEDBACK" \
 python3 - "$TEMPLATE" "$ALLOWLIST" "$VALUES" "$PHASE" "$CHECK" \
           "$_DEF_TICKET" "$_DEF_TITLE" "$_DEF_SLUG" "$_DEF_WORKTREE" \
-          "$_DEF_PLANNER_WORKSPACE" "$_DEF_PLANNER_SURFACE" "$_DEF_IMPLEMENTER_SHA" "$_DEF_SKILL_BASE" <<'PY'
+          "$_DEF_PLANNER_WORKSPACE" "$_DEF_PLANNER_SURFACE" "$_DEF_IMPLEMENTER_SHA" "$_DEF_SKILL_BASE" \
+          "keep" <<'PY'
 import sys, re, os
 
 template_path  = sys.argv[1]
@@ -86,6 +87,7 @@ defaults = {
     "PLANNER_SURFACE":   sys.argv[11],
     "IMPLEMENTER_SHA":   sys.argv[12],
     "SKILL_BASE":        sys.argv[13],
+    "FINISH_MODE":       sys.argv[14],
     "TASK":              os.environ.get("_RENDER_TASK", ""),
     "FEEDBACK":          os.environ.get("_RENDER_FEEDBACK", ""),
 }

@@ -65,6 +65,27 @@ While you work, if you encounter something unexpected or unclear, **stop and wri
 
 ---
 
+## Finish mode
+
+**Current finish mode: `{{FINISH_MODE}}`**
+
+When both **spec-reviewer AND code-reviewer have APPROVED** (not just completed), you may trigger the finish step by running:
+
+```bash
+scripts/finish-task.sh --mode {{FINISH_MODE}} --worktree <WORKTREE>
+```
+
+Replace `<WORKTREE>` with the value from the Task context section below.
+
+**Mode behavior:**
+- `keep` — (default) no-op. Preserves the worktree, avoids pushing or opening a PR. Use this unless explicitly instructed otherwise.
+- `pr` — Push the branch to origin and open a pull request via `gh pr create`. Idempotent: running again returns the existing PR URL.
+- `merge` — Checkout the base branch, pull latest, merge the feature branch, re-run tests, and remove the worktree if green. Idempotent: re-running completes or aborts cleanly.
+
+**Hard rule reconciliation:** The discipline rule "Never push, merge, or open a PR" applies during implementation and review. Once BOTH reviewers have APPROVED, the finish step is the planner's decision, not yours. If the planner has set `--finish-mode pr` or `--finish-mode merge`, calling `finish-task.sh` honors that decision. You are not deciding to push or merge; you are executing the finish step as instructed.
+
+---
+
 ## Hard rules
 
 - Stay in the worktree. Never edit files in the parent repo.

@@ -25,12 +25,12 @@ You are the planner. Your job is to:
 
 1. Read the plan (or the user's intent) and extract atomic sub-tasks.
 2. For each sub-task, create a Jira sub-task (or any other tracker — the skill only needs a string ID like `ALPM-1234-1`) with `parentIssueKey` pointing at the parent story.
-3. For each sub-task, dispatch an implementer tab via `dispatch-implementer.sh`.
+3. For each sub-task, dispatch an implementer tab via `dispatch-implementer.sh`, optionally with `--finish-mode <mode>` to automate the finish step.
 4. Poll each implementer's result file. Decide based on its status (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED) what to do next.
 5. After implementer reports DONE, dispatch a spec-reviewer tab. Loop reviews with the implementer if issues are found.
 6. After spec-reviewer reports APPROVED, dispatch a code-quality-reviewer tab. Loop with the implementer if issues are found.
 7. Mark the sub-task done. Move to the next.
-8. When all sub-tasks are done, hand off to `superpowers:finishing-a-development-branch` (which you run yourself, not in a tab).
+8. When all sub-tasks are done: if you used `--finish-mode pr` or `--finish-mode merge`, the finish step is already done. Otherwise, optionally hand off to `superpowers:finishing-a-development-branch` (which you run yourself, not in a tab).
 
 **You never edit code yourself.** If you catch yourself writing files in the project, stop and dispatch instead.
 
@@ -114,13 +114,16 @@ Full upstream wording: `references/upstream-quotes.md`.
 All scripts live at `~/.claude/skills/cmux-tab-agents/scripts/`. They must be run from inside cmux.
 
 **Three dispatch scripts:**
-1. `dispatch-implementer.sh` — pass `--ticket`, `--title`, `--slug`, `--task-text` (or `--task-file`), optionally `--feedback-from-previous-review`
+1. `dispatch-implementer.sh` — pass `--ticket`, `--title`, `--slug`, `--task-text` (or `--task-file`), optionally `--feedback-from-previous-review` and `--finish-mode`
 2. `dispatch-spec-reviewer.sh` — pass `--ticket`, `--title`, `--slug`, `--task-text`, `--implementer-sha`
 3. `dispatch-code-reviewer.sh` — same as spec-reviewer
 
 **Optional flags** (all three scripts):
 - `--planner-surface <ref>` — where tab-agents push terminal-state lines (defaults to auto-detected)
 - `--model <model-id>` — override Claude model (precedence: this flag > repo config `[models].<phase>` > global default; see **"Model defaults by phase"** in `references/configuration.md`)
+
+**Optional flags** (implementer only):
+- `--finish-mode <mode>` — what to do after code review approves. Modes: `keep` (default; noop), `pr` (push + open PR), `merge` (merge to main + clean). See `references/finishing.md` for details.
 
 For detailed examples, all parameters, and `--fix-only` mode, see `references/dispatch-reference.md`.
 
