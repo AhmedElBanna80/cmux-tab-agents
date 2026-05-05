@@ -82,7 +82,7 @@ resolve_model_for_phase() {
 # render_template <src> <dst>  — substitutes {{KEY}} placeholders from env vars.
 # Reads source path and dest path from argv. Reads template values from env
 # (TPL_TICKET, TPL_TITLE, TPL_SLUG, TPL_WORKTREE, TPL_PWS, TPL_PSURF,
-# TPL_IMPL_SHA, TPL_TASK, TPL_FEEDBACK, TPL_SKILL_BASE) — passing through env avoids shell
+# TPL_IMPL_SHA, TPL_TASK, TPL_FEEDBACK, TPL_SKILL_BASE, TPL_OWN_SURF) — passing through env avoids shell
 # quoting issues with multiline task text and arbitrary review feedback.
 render_template() {
   local src="$1" dst="$2"
@@ -103,6 +103,7 @@ mapping = {
     "FINISH_MODE":          os.environ.get("TPL_FINISH_MODE", ""),
     "LEAD_SURFACE":         os.environ.get("TPL_LEAD_SURF", ""),
     "MAX_LOOP_ITERATIONS":  os.environ.get("TPL_MAX_LOOP_ITER", ""),
+    "OWN_SURFACE":          os.environ.get("TPL_OWN_SURF", ""),
 }
 with open(src, "r", encoding="utf-8") as f:
     body = f.read()
@@ -273,25 +274,9 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
     exit 1
   fi
 
-  # 2. Render seed prompt for this phase.
-  local TEMPLATE
-  if [[ $FIX_ONLY -eq 1 && "$PHASE" == "implementer" ]]; then
-    TEMPLATE="$SKILL_ROOT/prompts/${PHASE}-fix-only-tab-prompt.md"
-  else
-    TEMPLATE="$SKILL_ROOT/prompts/${PHASE}-tab-prompt.md"
-  fi
-  [[ -r "$TEMPLATE" ]] || { echo "$0: missing template $TEMPLATE" >&2; exit 1; }
-
-  local RENDERED="$WT/.cmux-tab-prompt-${PHASE}.md"
-  TPL_TICKET="$TICKET" TPL_TITLE="$TITLE" TPL_SLUG="$SLUG" TPL_WORKTREE="$WT" \
-    TPL_PWS="$PLANNER_WS" TPL_PSURF="$PLANNER_SURFACE" \
-    TPL_IMPL_SHA="$IMPL_SHA" TPL_TASK="$TASK_TEXT" TPL_FEEDBACK="$FEEDBACK" \
-    TPL_SKILL_BASE="$SKILL_ROOT" TPL_FINISH_MODE="$FINISH_MODE" \
-    TPL_LEAD_SURF="$LEAD_SURFACE" TPL_MAX_LOOP_ITER="$MAX_LOOP_ITERATIONS" \
-    render_template "$TEMPLATE" "$RENDERED"
-
-  # 3. Spawn a new tab in the planner's pane. Reuse the pane ref we already
-  # resolved via `cmux identify` above.
+  # 2. Spawn a new tab in the planner's pane. Reuse the pane ref we already
+  # resolved via `cmux identify` above. We spawn first so we can pass the
+  # SURFACE ref (OWN_SURFACE) to the template.
   if [[ -z "$CALLER_PANE" ]]; then
     echo "$0: cannot determine current pane (cmux identify failed; not running inside a cmux tab?)" >&2
     exit 1
@@ -308,13 +293,31 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
     'import sys,json; d=json.load(sys.stdin); print(d.get("surface_ref") or d.get("surface",{}).get("ref",""))' 2>/dev/null)
   [[ -z "$SURFACE" ]] && { echo "$0: could not parse surface ref from: $SPAWN_JSON" >&2; exit 1; }
 
+  # 3. Render seed prompt for this phase. Now that SURFACE is known, pass it as OWN_SURFACE.
+  local TEMPLATE
+  if [[ $FIX_ONLY -eq 1 && "$PHASE" == "implementer" ]]; then
+    TEMPLATE="$SKILL_ROOT/prompts/${PHASE}-fix-only-tab-prompt.md"
+  else
+    TEMPLATE="$SKILL_ROOT/prompts/${PHASE}-tab-prompt.md"
+  fi
+  [[ -r "$TEMPLATE" ]] || { echo "$0: missing template $TEMPLATE" >&2; exit 1; }
+
+  local RENDERED="$WT/.cmux-tab-prompt-${PHASE}.md"
+  TPL_TICKET="$TICKET" TPL_TITLE="$TITLE" TPL_SLUG="$SLUG" TPL_WORKTREE="$WT" \
+    TPL_PWS="$PLANNER_WS" TPL_PSURF="$PLANNER_SURFACE" \
+    TPL_IMPL_SHA="$IMPL_SHA" TPL_TASK="$TASK_TEXT" TPL_FEEDBACK="$FEEDBACK" \
+    TPL_SKILL_BASE="$SKILL_ROOT" TPL_FINISH_MODE="$FINISH_MODE" \
+    TPL_LEAD_SURF="$LEAD_SURFACE" TPL_MAX_LOOP_ITER="$MAX_LOOP_ITERATIONS" \
+    TPL_OWN_SURF="$SURFACE" \
+    render_template "$TEMPLATE" "$RENDERED"
+
   # 3a. Rename the tab BEFORE booting claude. cmux re-titles tabs to the
   # foreground process name (e.g. "Claude Code") when claude takes over, so
   # the seed prompt's rename inside the agent often gets clobbered. Setting
   # the title against the pre-claude shell makes the custom title stick.
   cmux rename-tab --surface "$SURFACE" "${TICKET}: ${TITLE}" >/dev/null 2>&1 || true
 
-  # 4. Resolve model and effort through layered defaults:
+  # 4 (old 4). Resolve model and effort through layered defaults:
   #    MODEL: CLI flag > phase-specific [models].<phase> > default_model > (none)
   #    EFFORT: CLI flag > env var > per-repo TOML > user-global TOML > (none)
   # Get repo root for per-repo config lookups.

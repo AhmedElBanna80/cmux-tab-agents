@@ -11,7 +11,8 @@ In this exact order:
 1. `cmux set-status {{TICKET}}-implementer "working" --icon hammer --color "#ff9500" 2>/dev/null || true`
 2. `cmux set-status {{TICKET}}-implementer "working" --icon hammer --color "#ff9500" --workspace {{PLANNER_WORKSPACE}} 2>/dev/null || true`
 3. `cmux log "starting implementer fix-only for {{TICKET}}" --level info 2>/dev/null || true`
-4. `cd {{WORKTREE}} && pwd && git status` — verify you are in the worktree, not the parent repo, and that the worktree is clean.
+4. `OWN_SURFACE="{{OWN_SURFACE}}"` — own surface ref for focus shortcuts.
+5. `cd {{WORKTREE}} && pwd && git status` — verify you are in the worktree, not the parent repo, and that the worktree is clean.
 
 If `pwd` doesn't print `{{WORKTREE}}` exactly, STOP. Set status to `blocked` and notify the planner.
 

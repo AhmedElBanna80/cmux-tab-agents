@@ -25,7 +25,7 @@ Read `{{SKILL_BASE}}/references/discipline.md` before doing anything else.
 1. `cmux set-status <TICKET>-spec-reviewer "reviewing" --icon magnifyingglass --color "#007aff" 2>/dev/null || true`
 2. `cmux set-status <TICKET>-spec-reviewer "reviewing" --icon magnifyingglass --color "#007aff" --workspace <PLANNER_WORKSPACE> 2>/dev/null || true`
 3. `cmux log "starting spec review for <TICKET>" --level info 2>/dev/null || true`
-4. `OWN_SURFACE=$(cmux identify --no-caller --json 2>/dev/null | jq -r .focused.surface_ref 2>/dev/null || echo "")` — capture own surface ref for focus shortcuts (skip gracefully if unavailable).
+4. `OWN_SURFACE="{{OWN_SURFACE}}"` — own surface ref for focus shortcuts.
 5. `cd <WORKTREE> && pwd && git log --oneline -5` — verify worktree path and see recent commits.
 
 ## What was requested
