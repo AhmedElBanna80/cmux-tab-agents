@@ -8,7 +8,7 @@ POLL_SCRIPT="$SCRIPT_DIR/poll-result.sh"
 
 # Create a temp directory for test artifacts
 TEST_DIR=$(mktemp -d)
-trap "rm -rf '$TEST_DIR'" EXIT
+trap 'rm -rf "$TEST_DIR"' EXIT
 
 # Synthetic result file: short body (< 30 lines)
 create_short_result() {
