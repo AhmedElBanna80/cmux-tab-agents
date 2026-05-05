@@ -43,7 +43,7 @@ fi
 # T4: keep mode with valid worktree (noop)
 tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
-cd "$tmpdir"
+cd "$tmpdir" || exit 1
 git init -q .
 touch test.txt
 git add test.txt
@@ -96,7 +96,7 @@ chmod +x "$mock_tmpdir/mock-gh/gh"
 # Set up pr mode test with mock gh in PATH
 pr_test_tmpdir=$(mktemp -d)
 trap 'rm -rf "$pr_test_tmpdir"' EXIT
-cd "$pr_test_tmpdir"
+cd "$pr_test_tmpdir" || exit 1
 
 # Initialize git repo
 git init -q .
@@ -131,7 +131,7 @@ trap 'rm -rf "$merge_test_tmpdir"' EXIT
 # Create main repo
 main_repo="$merge_test_tmpdir/main"
 mkdir -p "$main_repo"
-cd "$main_repo"
+cd "$main_repo" || exit 1
 git init -q .
 git config user.email "test@example.com"
 git config user.name "Test User"
@@ -175,7 +175,7 @@ fi
 # T9: finish-task.sh handles missing test command gracefully
 skip_test_tmpdir=$(mktemp -d)
 trap 'rm -rf "$skip_test_tmpdir"' EXIT
-cd "$skip_test_tmpdir"
+cd "$skip_test_tmpdir" || exit 1
 git init -q .
 touch test.txt
 git add test.txt
@@ -193,7 +193,7 @@ fi
 # Tests the verification gate: if tests fail, finish-task.sh should abort without action
 fail_test_tmpdir=$(mktemp -d)
 trap 'rm -rf "$fail_test_tmpdir"' EXIT
-cd "$fail_test_tmpdir"
+cd "$fail_test_tmpdir" || exit 1
 
 # Create a repo with a failing test
 git init -q .
