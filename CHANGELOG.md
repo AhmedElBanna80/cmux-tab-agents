@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Default mode (no flags): Emit YAML frontmatter + first 30 lines of markdown body + truncation marker if longer
   - Updated SKILL.md with recommendations on when to use each mode
   - Added comprehensive test suite (poll-result.test.sh) covering all three modes
+- **ISSUE-20:** Add heuristic for skipping code-quality review on trivial diffs
+  - New helper script `scripts/should-skip-code-review.sh` automates the decision
+  - New reference doc `references/skip-heuristics.md` describes the heuristic
+  - Planner can now safely skip code-reviewer phase for test-only, doc-only, and changelog-only changes ≤30 lines
+  - All changes require spec-reviewer approval with no concerns flagged
+  - Skipping is optional; planner remains in control
 
 ### Changed
 
