@@ -24,9 +24,11 @@ All notable changes to the cmux-tab-agents skill are documented here.
   - Skill directory structure moved to `references/skill-structure.md`.
   - Edge cases and integration with other skills moved to `references/operational-guide.md`.
   - "See also" section expanded to list all reference documents.
+- Dispatch scripts now support `[models]` configuration section (backward-compatible) (ISSUE-18)
 
 ### Added
 - **Verification artifact for reviewers (ISSUE-23):** Implementer now writes an optional `.cmux-implementer-verification.json` artifact alongside its result file, capturing test, lint, build, and hook verification results. Reviewers can use this artifact to reduce re-verification scope when the artifact is fresh, consistent, and shows all steps passing. See `references/reporting-contract.md` for schema and usage guidelines. Ensures honest reporting: failed or skipped verification steps must be reflected accurately in the artifact.
+- **Per-phase model defaults (ISSUE-18):** `[models]` section in `.claude/cmux-tab-agents.toml` allows configuring default Claude models for each phase (implementer, spec_reviewer, code_reviewer), avoiding repeated `--model` flags and reducing costs on mechanical review tasks. Precedence: CLI `--model` flag > repo config `[models].<phase>` > global `default_model` > global default. See `references/configuration.md` for details.
 
 ### Details (ISSUE-16)
 - Created `references/discipline.md` with verbatim discipline language from:

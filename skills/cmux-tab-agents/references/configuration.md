@@ -106,6 +106,13 @@ setup_command = "make bootstrap"
 
 # Validate the --ticket arg against this regex. Default: any non-empty string.
 ticket_pattern = "^[A-Z]+-[0-9]+(-[0-9]+)?$"
+
+# Per-phase default models. Used when --model is not passed on the CLI.
+# See "Model defaults by phase" below for details.
+[models]
+implementer    = "claude-sonnet-4-6"            # default for implementer phase
+spec_reviewer  = "claude-haiku-4-5-20251001"    # default for spec review
+code_reviewer  = "claude-haiku-4-5-20251001"    # default for code review
 ```
 
 ## User-global config: `~/.claude/cmux-tab-agents.toml`
@@ -145,6 +152,49 @@ When dispatch is called, `--model` and `--effort` are resolved in this order (fi
 4. `<parent-of-repo>/worktrees/<repo-name>/` (sibling default — no gitignore concern, since it's outside the repo).
 
 If none of these resolve to a usable path, dispatch fails with a clear error pointing to the env var and the config file.
+
+## Model defaults by phase
+
+Each dispatch script (implementer, spec-reviewer, code-reviewer) can have per-phase Claude model defaults, so you don't pay premium-model rates on mechanical tasks.
+
+### Precedence order
+
+When a dispatch script is invoked, the model to use is resolved in this order (first match wins):
+
+1. **CLI flag:** `--model MODEL_ID` on the dispatch command (highest priority).
+2. **Repo config:** `[models].<phase>` in `<repo>/.claude/cmux-tab-agents.toml`.
+3. **Global default:** The Claude model configured in the user's global settings (current behavior if neither flag nor config is set).
+
+### Example
+
+Set per-phase defaults in your repo to use cheaper Haiku for reviews (which are mechanical) and stronger Sonnet for the implementer phase (which benefits from better reasoning):
+
+```toml
+# .claude/cmux-tab-agents.toml
+[models]
+implementer    = "claude-sonnet-4-6"            # ambiguous design work → stronger model
+spec_reviewer  = "claude-haiku-4-5-20251001"    # mechanical → cheaper model
+code_reviewer  = "claude-haiku-4-5-20251001"    # mechanical → cheaper model
+```
+
+Then dispatch without worrying about the cost:
+
+```bash
+./scripts/dispatch-implementer.sh --ticket PROJ-123 --title "..." --slug ... --task-file ...
+# → uses claude-sonnet-4-6 (from config)
+
+./scripts/dispatch-spec-reviewer.sh --ticket PROJ-123 ... --task-file ...
+# → uses claude-haiku-4-5-20251001 (from config)
+
+./scripts/dispatch-spec-reviewer.sh --ticket PROJ-123 ... --task-file ... --model claude-opus-4-7
+# → uses claude-opus-4-7 (CLI flag overrides config)
+```
+
+The dispatch script prints the resolved model to stderr, so you can verify which model was chosen:
+
+```
+Resolved model for implementer: claude-sonnet-4-6
+```
 
 ### Bootstrap probes (default behavior)
 
