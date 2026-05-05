@@ -41,7 +41,8 @@ cleanup_test_worktree() {
 
 # Test 1: Trivial test-only diff should skip
 test_trivial_test_only_diff() {
-  local WT=$(setup_test_worktree)
+  local WT
+  WT=$(setup_test_worktree)
   cd "$WT"
 
   # Create a small test-only diff (≤ 30 lines)
@@ -54,7 +55,8 @@ describe('app', () => {
 EOF
   git add app.test.js
   git commit -q -m "add test"
-  local IMPL_SHA=$(git rev-parse HEAD)
+  local IMPL_SHA
+  IMPL_SHA=$(git rev-parse HEAD)
 
   # Create spec-reviewer result: APPROVED
   cat > .cmux-spec-reviewer-result.md << 'EOF'
@@ -80,7 +82,8 @@ EOF
 
 # Test 2: Large diff should NOT skip
 test_large_diff_no_skip() {
-  local WT=$(setup_test_worktree)
+  local WT
+  WT=$(setup_test_worktree)
   cd "$WT"
 
   # Create a large diff (> 30 lines)
@@ -123,7 +126,8 @@ main();
 EOF
   git add app.js
   git commit -q -m "add main logic"
-  local IMPL_SHA=$(git rev-parse HEAD)
+  local IMPL_SHA
+  IMPL_SHA=$(git rev-parse HEAD)
 
   # Create spec-reviewer result: APPROVED
   cat > .cmux-spec-reviewer-result.md << 'EOF'
@@ -149,7 +153,8 @@ EOF
 
 # Test 3: Spec-reviewer with concerns should NOT skip
 test_spec_reviewer_with_concerns_no_skip() {
-  local WT=$(setup_test_worktree)
+  local WT
+  WT=$(setup_test_worktree)
   cd "$WT"
 
   # Create a small test-only diff
@@ -162,7 +167,8 @@ describe('app', () => {
 EOF
   git add app.test.js
   git commit -q -m "add test"
-  local IMPL_SHA=$(git rev-parse HEAD)
+  local IMPL_SHA
+  IMPL_SHA=$(git rev-parse HEAD)
 
   # Create spec-reviewer result: APPROVED with concerns
   cat > .cmux-spec-reviewer-result.md << 'EOF'
@@ -191,7 +197,8 @@ EOF
 
 # Test 4: Markdown/doc-only trivial diff should skip
 test_markdown_only_diff() {
-  local WT=$(setup_test_worktree)
+  local WT
+  WT=$(setup_test_worktree)
   cd "$WT"
 
   # Create a small markdown-only diff
@@ -209,7 +216,8 @@ But still under 30 lines.
 EOF
   git add docs/guide.md
   git commit -q -m "add docs"
-  local IMPL_SHA=$(git rev-parse HEAD)
+  local IMPL_SHA
+  IMPL_SHA=$(git rev-parse HEAD)
 
   # Create spec-reviewer result: APPROVED
   cat > .cmux-spec-reviewer-result.md << 'EOF'
