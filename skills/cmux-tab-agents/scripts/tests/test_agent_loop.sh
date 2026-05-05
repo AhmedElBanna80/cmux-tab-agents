@@ -232,5 +232,61 @@ if [[ -r "$code_prompt" ]]; then
   fi
 fi
 
+# T20: Rendered implementer prompt contains circuit-breaker prose (same issue twice → BLOCKED)
+if [[ -r "$impl_prompt" ]]; then
+  (
+    . "$DISPATCH_COMMON"
+    TPL_TICKET="TEST-1" TPL_TITLE="Test" TPL_SLUG="test" TPL_WORKTREE="/tmp/wt" \
+    TPL_PWS="surface:1" TPL_PSURF="surface:0" TPL_IMPL_SHA="abc1234" \
+    TPL_TASK="task text" TPL_FEEDBACK="" TPL_SKILL_BASE="/tmp/skill" \
+    TPL_FINISH_MODE="pr" TPL_LEAD_SURF="surface:42" TPL_MAX_LOOP_ITER="5" \
+    render_template "$impl_prompt" "$tmpdir/rendered_impl.md"
+  )
+  rendered_impl=$(cat "$tmpdir/rendered_impl.md" 2>/dev/null || echo "")
+  if printf '%s' "$rendered_impl" | grep -q "same issue" && \
+     printf '%s' "$rendered_impl" | grep -q "BLOCKED"; then
+    pass "rendered implementer prompt: circuit-breaker (same issue twice → BLOCKED) present"
+  else
+    fail "rendered implementer prompt missing circuit-breaker prose (same issue + BLOCKED)"
+  fi
+else
+  fail "implementer prompt not found for T20"
+fi
+
+# T21: Rendered implementer prompt with MAX_LOOP_ITERATIONS=3 contains "3" and BLOCKED
+if [[ -r "$impl_prompt" ]]; then
+  (
+    . "$DISPATCH_COMMON"
+    TPL_TICKET="TEST-1" TPL_TITLE="Test" TPL_SLUG="test" TPL_WORKTREE="/tmp/wt" \
+    TPL_PWS="surface:1" TPL_PSURF="surface:0" TPL_IMPL_SHA="abc1234" \
+    TPL_TASK="task text" TPL_FEEDBACK="" TPL_SKILL_BASE="/tmp/skill" \
+    TPL_FINISH_MODE="pr" TPL_LEAD_SURF="surface:42" TPL_MAX_LOOP_ITER="3" \
+    render_template "$impl_prompt" "$tmpdir/rendered_impl_3.md"
+  )
+  rendered_impl3=$(cat "$tmpdir/rendered_impl_3.md" 2>/dev/null || echo "")
+  if printf '%s' "$rendered_impl3" | grep -q "3" && \
+     printf '%s' "$rendered_impl3" | grep -q "BLOCKED"; then
+    pass "rendered implementer prompt (MAX_LOOP_ITERATIONS=3): max-iterations BLOCKED prose present"
+  else
+    fail "rendered implementer prompt missing max-iterations BLOCKED prose with value 3"
+  fi
+else
+  fail "implementer prompt not found for T21"
+fi
+
+# T22: Rendered implementer prompt contains happy-path terminal state (finish-task.sh + .cmux-task-result.md + DONE)
+if [[ -r "$impl_prompt" ]]; then
+  rendered_impl=$(cat "$tmpdir/rendered_impl.md" 2>/dev/null || echo "")
+  if printf '%s' "$rendered_impl" | grep -q "finish-task.sh" && \
+     printf '%s' "$rendered_impl" | grep -q "cmux-task-result" && \
+     printf '%s' "$rendered_impl" | grep -q "DONE"; then
+    pass "rendered implementer prompt: happy-path terminal state (finish-task.sh + .cmux-task-result.md + DONE) present"
+  else
+    fail "rendered implementer prompt missing happy-path terminal state wiring"
+  fi
+else
+  fail "implementer prompt not found for T22"
+fi
+
 printf '\n=== Results: %d passed, %d failed ===\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]
