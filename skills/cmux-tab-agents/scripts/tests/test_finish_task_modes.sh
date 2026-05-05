@@ -64,16 +64,103 @@ else
   fail "nonexistent worktree not rejected: $out"
 fi
 
-# T6: pr mode requires gh (skip if gh not installed)
-if ! command -v gh &>/dev/null; then
-  skip "pr mode test (gh not installed)"
+# T6: pr mode with mock gh
+# Create temp directory with mock gh
+mock_tmpdir=$(mktemp -d)
+trap 'rm -rf "$mock_tmpdir"' EXIT
+
+# Create mock gh binary
+mkdir -p "$mock_tmpdir/mock-gh"
+cat > "$mock_tmpdir/mock-gh/gh" <<'MOCKGH'
+#!/usr/bin/env bash
+# Mock gh binary for testing
+case "$*" in
+  *"pr view"*)
+    # Return error (no existing PR)
+    echo "no pull requests found" >&2
+    exit 1
+    ;;
+  *"pr create"*)
+    # Return fake PR URL
+    echo "https://github.com/test/repo/pull/42"
+    exit 0
+    ;;
+  *)
+    echo "unknown command: $@" >&2
+    exit 1
+    ;;
+esac
+MOCKGH
+chmod +x "$mock_tmpdir/mock-gh/gh"
+
+# Set up pr mode test with mock gh in PATH
+pr_test_tmpdir=$(mktemp -d)
+trap 'rm -rf "$pr_test_tmpdir"' EXIT
+cd "$pr_test_tmpdir"
+
+# Initialize git repo
+git init -q .
+git config user.email "test@example.com"
+git config user.name "Test User"
+git remote add origin https://github.com/test/repo.git
+
+# Create initial commit
+echo "test" > file.txt
+git add file.txt
+git commit -q -m "initial"
+
+# Create feature branch
+git checkout -q -b feat/ISSUE-42/test
+echo "feature" >> file.txt
+git add file.txt
+git commit -q -m "add feature"
+
+# Run finish-task with pr mode using mock gh
+export PATH="$mock_tmpdir/mock-gh:$PATH"
+out=$("$FINISH_TASK" pr "$pr_test_tmpdir" 2>&1)
+if printf '%s' "$out" | grep -q "https://github.com/test/repo/pull/42"; then
+  pass "pr mode creates PR and returns URL with mock gh"
 else
-  # Would need gh auth and a real repo, so skip
-  skip "pr mode test (would require github auth)"
+  fail "pr mode didn't return PR URL: $out"
 fi
 
-# T7: merge mode requires git operations (skip if complex setup)
-skip "merge mode test (would require complex git setup with base branch)"
+# T7: merge mode with throwaway worktree
+merge_test_tmpdir=$(mktemp -d)
+trap 'rm -rf "$merge_test_tmpdir"' EXIT
+
+# Create main repo
+main_repo="$merge_test_tmpdir/main"
+mkdir -p "$main_repo"
+cd "$main_repo"
+git init -q .
+git config user.email "test@example.com"
+git config user.name "Test User"
+touch init.txt
+git add init.txt
+git commit -q -m "initial"
+
+# Create feature branch
+git checkout -q -b feat/ISSUE-43/test
+echo "feature" > feature.txt
+git add feature.txt
+git commit -q -m "add feature"
+
+# Create a worktree (simulating what the implementer would have)
+worktree_dir="$merge_test_tmpdir/worktree"
+git worktree add -q "$worktree_dir" feat/ISSUE-43/test
+
+# Switch back to main
+git checkout -q main
+
+# Run merge mode (should remove the worktree)
+out=$("$FINISH_TASK" merge "$worktree_dir" 2>&1)
+
+# Verify worktree was removed
+if ! git worktree list | grep -q "$worktree_dir"; then
+  pass "merge mode cleans up worktree"
+else
+  fail "merge mode didn't remove worktree"
+fi
 
 # T8: Verify finish-task.sh is idempotent (can be called multiple times)
 # For keep mode, should always succeed
