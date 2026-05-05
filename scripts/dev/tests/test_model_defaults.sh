@@ -67,7 +67,7 @@ run_resolve_in_repo() {
 run_dispatch_model_resolution() {
   local tmpdir="$1" ticket="$2" phase="$3" model_flag="$4"
   (
-    cd "$tmpdir"
+    cd "$tmpdir" || exit
     # shellcheck source=/dev/null
     source "$SKILL_ROOT/scripts/_dispatch_common.sh"
 
