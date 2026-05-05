@@ -72,6 +72,21 @@ For each sub-task (parallelizable across tasks):
               APPROVED      → mark sub-task done, move to next
               ISSUES_FOUND  → re-dispatch implementer with --feedback-from-previous-review,
                               loop back through spec review then code review
+
+### Optional: Skip code-reviewer phase on trivial diffs
+
+After spec-reviewer reports `APPROVED`, the planner **MAY** skip the code-reviewer phase if the diff is trivial. See `references/skip-heuristics.md` for the heuristic (≤30 lines, test/spec/markdown/changelog files only, spec-reviewer has no concerns). Use the helper script `scripts/should-skip-code-review.sh` to make the decision deterministic:
+
+```bash
+if ~/.claude/skills/cmux-tab-agents/scripts/should-skip-code-review.sh \
+   --worktree "$WORKTREE" --implementer-sha "$(git -C $WORKTREE rev-parse HEAD)"; then
+  # → safe to skip; mark sub-task done without dispatching code-reviewer
+else
+  # → dispatch code-reviewer as usual
+fi
+```
+
+**Important:** Skipping is always optional. This is an optimization for small, obviously safe changes. When in doubt, run code-reviewer.
 ```
 
 Three sequential tabs in the same worktree. Only one runs at a time (implementer first; reviewers run on the implementer's committed state). Tabs from prior phases stay open for inspection.
