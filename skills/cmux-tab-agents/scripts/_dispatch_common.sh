@@ -311,6 +311,11 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
     fi
   fi
 
+  # Print resolved model to stderr for visibility
+  if [[ -n "$resolved_model" ]]; then
+    echo "[${TICKET}-${PHASE}] resolved model: $resolved_model" >&2
+  fi
+
   # Resolve EFFORT: use generic resolve_setting (CLI > env > per-repo TOML > user-global TOML).
   local resolved_effort
   resolved_effort=$(resolve_setting EFFORT "$EFFORT" "$repo_root") || resolved_effort=""
