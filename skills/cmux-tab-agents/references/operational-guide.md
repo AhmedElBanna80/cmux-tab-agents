@@ -1,5 +1,20 @@
 # cmux-tab-agents operational guide
 
+## Setup
+
+### Consumer repo .gitignore
+
+The dispatcher automatically injects `.cmux-*` and `.cmux-tab-prompt-*.md` patterns into the worktree's `.gitignore` when creating a new worktree. This prevents tab-agent result files from being accidentally committed.
+
+**Important:** Do not run `git add -A` before dispatch has completed — the pattern injection must run first. If you need to stage changes, stage specific files instead:
+
+```bash
+git add path/to/specific/file  # OK: explicit files
+git add .                      # RISKY: before dispatcher has run
+```
+
+Once dispatch runs (lines 1a in `_dispatch_common.sh`), the `.gitignore` is populated and subsequent operations are safe. The `make lint` check verifies `.cmux-*` is in `.gitignore`.
+
 ## Edge cases
 
 ### Worktree path exists but is not a git worktree

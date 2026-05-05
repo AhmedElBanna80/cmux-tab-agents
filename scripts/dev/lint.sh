@@ -48,7 +48,16 @@ else
   failures=$((failures + 1))
 fi
 
-# Check 3: prompt-template lint
+# Check 3: cmux-gitignore
+printf '==> cmux-gitignore\n'
+if grep -qF '.cmux-*' "$REPO_ROOT/.gitignore" 2>/dev/null; then
+  printf 'OK\n'
+else
+  printf 'FAIL: .gitignore must contain .cmux-* to prevent result file commits\n'
+  failures=$((failures + 1))
+fi
+
+# Check 4: prompt-template lint
 printf '==> prompt-template-lint\n'
 prompt_ok=1
 for phase in implementer spec-reviewer code-reviewer; do
@@ -62,7 +71,7 @@ else
   failures=$((failures + 1))
 fi
 
-printf '\nlint: 3 checks ran, %d failures\n' "$failures"
+printf '\nlint: 4 checks ran, %d failures\n' "$failures"
 if [[ "$failures" -gt 0 ]]; then
   exit 1
 fi

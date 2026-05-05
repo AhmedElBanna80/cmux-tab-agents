@@ -4,6 +4,8 @@ All notable changes to cmux-tab-agents are documented here.
 
 ## Fixed
 
+- **Structurally prevent `.cmux-*` files from being committed** (ISSUE-44): Dispatcher now injects `.cmux-*` and `.cmux-tab-prompt-*.md` patterns into the worktree's `.gitignore` automatically via `_ensure_cmux_gitignore()`, ensuring planner artifacts are protected without requiring consumer repo configuration. Injection is idempotent. Added `make lint` check to verify `.cmux-*` is in `.gitignore`. Updated `operational-guide.md` with setup notes on safe staging practices before dispatch.
+
 - **`ensure-worktree.sh` branches from stale local main** (ISSUE-49): `ensure-worktree.sh` now fetches `origin/main` and branches new worktrees from it instead of a potentially stale local `main`. This eliminates the need to manually pull before creating a worktree and prevents inheriting out-of-date bases. Idempotent resume logic preserved: if a branch already exists, it is reused as before.
 
 ## Changed

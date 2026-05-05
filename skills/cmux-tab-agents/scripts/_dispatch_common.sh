@@ -79,6 +79,32 @@ resolve_model_for_phase() {
   return 0
 }
 
+# _ensure_cmux_gitignore <worktree> — ensure .cmux-* patterns are in worktree .gitignore
+_ensure_cmux_gitignore() {
+  local worktree="$1"
+  local gitignore="$worktree/.gitignore"
+  local pattern=".cmux-*"
+  local prompt_pattern=".cmux-tab-prompt-*.md"
+
+  # Create .gitignore if missing
+  if [[ ! -f "$gitignore" ]]; then
+    printf '# cmux-tab-agents planner artifacts\n%s\n%s\n' "$pattern" "$prompt_pattern" > "$gitignore"
+    return 0
+  fi
+
+  # Check if pattern already exists
+  if grep -qF "$pattern" "$gitignore"; then
+    # Primary pattern exists; check for secondary pattern
+    if ! grep -qF "$prompt_pattern" "$gitignore"; then
+      printf '%s\n' "$prompt_pattern" >> "$gitignore"
+    fi
+    return 0
+  fi
+
+  # Pattern missing, add both
+  printf '\n# cmux-tab-agents planner artifacts\n%s\n%s\n' "$pattern" "$prompt_pattern" >> "$gitignore"
+}
+
 # render_template <src> <dst>  — substitutes {{KEY}} placeholders from env vars.
 # Reads source path and dest path from argv. Reads template values from env
 # (TPL_TICKET, TPL_TITLE, TPL_SLUG, TPL_WORKTREE, TPL_PWS, TPL_PSURF,
@@ -273,6 +299,9 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
     echo "$0: ensure-worktree failed for $TICKET" >&2
     exit 1
   fi
+
+  # 1a. Ensure .cmux-* patterns are in worktree .gitignore
+  _ensure_cmux_gitignore "$WT"
 
   # 2. Spawn a new tab in the planner's pane. Reuse the pane ref we already
   # resolved via `cmux identify` above. We spawn first so we can pass the
