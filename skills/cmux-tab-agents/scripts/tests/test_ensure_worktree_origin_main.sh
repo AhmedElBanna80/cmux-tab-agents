@@ -30,7 +30,7 @@ cd "$tmpdir" || exit 1
 # Create initial repo with commit 1
 initial_repo="$tmpdir/initial"
 git init -q -b main "$initial_repo"
-cd "$initial_repo"
+cd "$initial_repo" || exit 1
 git config user.email "test@example.com"
 git config user.name "Test User"
 touch file1.txt
@@ -45,12 +45,12 @@ git clone -q --bare . "$bare_repo"
 # Clone to get a working copy
 local_repo="$tmpdir/repo"
 git clone -q "$bare_repo" "$local_repo"
-cd "$local_repo"
+cd "$local_repo" || exit 1
 git config user.email "test@example.com"
 git config user.name "Test User"
 
 # Now push additional commits from the initial_repo to origin
-cd "$initial_repo"
+cd "$initial_repo" || exit 1
 touch file2.txt
 git add file2.txt
 git commit -q -m "commit 2"
@@ -58,7 +58,7 @@ commit2=$(git rev-parse HEAD)
 git push -q "$bare_repo" main
 
 # Go back to local_repo and fetch (without pulling)
-cd "$local_repo"
+cd "$local_repo" || exit 1
 git fetch -q origin
 
 # Verify local main is behind origin/main
