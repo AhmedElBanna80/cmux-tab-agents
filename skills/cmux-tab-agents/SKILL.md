@@ -237,6 +237,8 @@ When a reviewer pushes `[<TICKET>-<phase>] ISSUES_FOUND: <summary>`, you have th
      --fix-only --feedback-from-previous-review "$(cat $WT/.cmux-spec-reviewer-result.md)"
    ```
    Spawns a fresh tab with a stripped seed: identity + worktree + reviewer feedback only, no full task scaffolding. Saves tokens and wall-time. Use for minor, localized fixes.
+   
+   **Important:** `--fix-only` always requires `--feedback-from-previous-review`; omitting it exits with an error.
 
 2. **Re-dispatch the implementer with full seed** (preferred for large or structural fixes).
    ```bash

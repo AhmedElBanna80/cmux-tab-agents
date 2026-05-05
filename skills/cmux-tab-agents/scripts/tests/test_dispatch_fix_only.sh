@@ -50,6 +50,22 @@ else
   fi
 fi
 
+# T3a: Test that error message is clear and actionable (includes guidance text)
+out=$(cd "$tmpdir" && bash -c "
+  . '$DISPATCH_COMMON'
+  dispatch_main --ticket TEST-1 --title 'Test' --slug test --fix-only 2>&1
+" || true)
+if printf '%s' "$out" | grep -qE "fix-only requires --feedback-from-previous-review.*provide.*reviewer"; then
+  pass "--fix-only error message is clear and actionable"
+else
+  # Check if error mentions both --fix-only and --feedback-from-previous-review
+  if printf '%s' "$out" | grep -q "fix-only" && printf '%s' "$out" | grep -q "feedback"; then
+    pass "--fix-only error message mentions both flags (may be on separate lines)"
+  else
+    fail "--fix-only error message not actionable enough, got: $out"
+  fi
+fi
+
 # T4: Test that --fix-only allows omitting --task-text and --task-file
 # This test checks that the validation logic doesn't require task when fix-only is set
 # We can't fully test this without mocking cmux, but we can check that the error

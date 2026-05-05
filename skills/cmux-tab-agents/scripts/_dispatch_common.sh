@@ -24,6 +24,9 @@ Usage: $0 --ticket TICKET --title TITLE --slug SLUG \\
           [--lead-surface REF] \\
           [--max-loop-iterations N] \\
           [--fix-only]
+
+OPTIONS:
+  --fix-only    Strip seed to identity+worktree+feedback only. REQUIRES --feedback-from-previous-review.
 EOF
   exit 1
 }
@@ -200,7 +203,7 @@ dispatch_main() {
 
   # --fix-only mode: feedback required, task optional
   if [[ $FIX_ONLY -eq 1 ]]; then
-    [[ -z "$FEEDBACK" ]] && { echo "$0: --fix-only requires --feedback-from-previous-review" >&2; usage; }
+    [[ -z "$FEEDBACK" ]] && { echo "$0: --fix-only requires --feedback-from-previous-review (provide the reviewer's result file content)" >&2; usage; }
   else
     # Normal mode: task required
     if [[ -n "$TASK_FILE" && -n "$TASK_TEXT" ]]; then
