@@ -5,6 +5,15 @@ All notable changes to cmux-tab-agents will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.5.0...cmux-tab-agents-v0.5.1) (2026-05-05)
+
+
+### Bug Fixes
+
+* **ISSUE-47:** pass OWN_SURFACE as template placeholder instead of cmux identify ([#56](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/56)) ([e48c66b](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/e48c66b26bbae7b7b24f1112abd4c59f0959c040))
+* **ISSUE-48:** document --fix-only requires --feedback-from-previous-review ([#53](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/53)) ([4155dad](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/4155dad84715fd9e578e528bc35d4a314ffe2d6a))
+* **ISSUE-49:** ensure-worktree.sh branches from origin/main not stale local main ([#54](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/54)) ([f834249](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/f8342494bd5ff09d8e5f199aed99b0474abd0d52))
+
 ## [0.5.0](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.4.0...cmux-tab-agents-v0.5.0) (2026-05-05)
 
 
