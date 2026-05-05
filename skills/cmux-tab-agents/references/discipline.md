@@ -320,6 +320,8 @@ Each role writes a unique result file at `{{WORKTREE}}/.cmux-<role>-result.md`:
 
 Seed prompts define the schema for each role. The result file is the source of truth — other phases read it, not intermediate chat.
 
+**Never commit or push `.cmux-*` files.** They are planner-side artifacts, gitignored in every consumer repo. Running `git add .cmux-*` or `git add -A` when these files exist is a hard error — verify with `git status` before committing and ensure no `.cmux-*` files appear in the staged diff.
+
 ### When to write the result file
 
 - **Write the file** for **terminal** states: `DONE` / `APPROVED`, `DONE_WITH_CONCERNS`, `ISSUES_FOUND`, `BLOCKED`, `NEEDS_CONTEXT` (only when final).
