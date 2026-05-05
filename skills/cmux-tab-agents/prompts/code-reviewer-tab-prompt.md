@@ -73,8 +73,6 @@ After pushing, idle. Planner may reply. Do not exit.
 
 **Implementer SHA:** {{IMPLEMENTER_SHA}}
 
-**Spec-reviewer status:** {{SPEC_REVIEWER_STATUS}}
-
 ### Task
 
 {{TASK}}
