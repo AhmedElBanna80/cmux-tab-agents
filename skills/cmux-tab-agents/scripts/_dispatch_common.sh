@@ -25,24 +25,52 @@ EOF
   exit 1
 }
 
-# resolve_model_for_phase <phase> <repo_root>
-# Resolves the model for a given phase from repo config [models].<phase> section.
+# resolve_model_for_phase <phase> [--model MODEL_ID]
+# Resolves the model for a given phase.
+# Precedence: --model flag (if provided) > repo config [models].<phase> > (empty)
+# Phase names are normalized (hyphens → underscores) before config lookup.
 # Returns the model ID if found, empty otherwise.
 resolve_model_for_phase() {
-  local phase="$1" repo_root="$2"
-  [[ -z "$repo_root" ]] && return 0
-  local config_file="$repo_root/.claude/cmux-tab-agents.toml"
-  [[ ! -f "$config_file" ]] && return 0
-  # Extract from [models] section: find [models], read until next [, extract phase = value
-  local value
-  value=$(sed -n '/^\[models\]/,/^\[/p' "$config_file" \
-    | grep -E "^[[:space:]]*${phase}[[:space:]]*=" \
-    | head -1 \
-    | sed -E "s/^[[:space:]]*${phase}[[:space:]]*=[[:space:]]*//" \
-    | sed -E 's/^"(.*)"$/\1/' \
-    | sed -E "s/^'(.*)'\$/\1/" \
-    || true)
-  [[ -n "$value" ]] && echo "$value"
+  local phase="$1"
+  local explicit_model=""
+
+  # Check for optional --model flag
+  if [[ $# -gt 1 && "$2" == "--model" && $# -gt 2 ]]; then
+    explicit_model="$3"
+  fi
+
+  # If explicit --model passed, use it (highest precedence)
+  if [[ -n "$explicit_model" ]]; then
+    echo "$explicit_model"
+    return 0
+  fi
+
+  # Normalize phase name: hyphens → underscores (dispatch passes 'spec-reviewer', config uses 'spec_reviewer')
+  phase="${phase//-/_}"
+
+  # Try to read from repo config [models] section
+  local repo_root
+  if repo_root=$(git rev-parse --show-toplevel 2>/dev/null); then
+    local config_file="$repo_root/.claude/cmux-tab-agents.toml"
+    if [[ -f "$config_file" ]]; then
+      # Extract from [models] section: find [models], read until next [, extract phase = value
+      local value
+      value=$(sed -n '/^\[models\]/,/^\[/p' "$config_file" \
+        | grep -E "^[[:space:]]*${phase}[[:space:]]*=" \
+        | head -1 \
+        | sed -E "s/^[[:space:]]*${phase}[[:space:]]*=[[:space:]]*//" \
+        | sed -E 's/^"(.*)"$/\1/' \
+        | sed -E "s/^'(.*)'\$/\1/" \
+        || true)
+      if [[ -n "$value" ]]; then
+        echo "$value"
+        return 0
+      fi
+    fi
+  fi
+
+  # No model found, return empty
+  return 0
 }
 
 # render_template <src> <dst>  — substitutes {{KEY}} placeholders from env vars.
@@ -266,17 +294,17 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
   # 4. Resolve model and effort through layered defaults:
   #    MODEL: CLI flag > phase-specific [models].<phase> > default_model > (none)
   #    EFFORT: CLI flag > env var > per-repo TOML > user-global TOML > (none)
-  # Get repo root for phase-specific and per-repo config lookups.
+  # Get repo root for per-repo config lookups.
   local repo_root
   repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || repo_root="."
 
-  # Resolve MODEL: check CLI first, then phase-specific config, then generic defaults.
+  # Resolve MODEL: check CLI with --model flag, then phase-specific config, then generic defaults.
   local resolved_model=""
   if [[ -n "$MODEL" ]]; then
-    resolved_model="$MODEL"
+    resolved_model=$(resolve_model_for_phase "$PHASE" --model "$MODEL")
   else
     # Try phase-specific [models].<phase> config
-    resolved_model=$(resolve_model_for_phase "$PHASE" "$repo_root") || resolved_model=""
+    resolved_model=$(resolve_model_for_phase "$PHASE") || resolved_model=""
     # If not found, try generic default_model
     if [[ -z "$resolved_model" ]]; then
       resolved_model=$(resolve_setting MODEL "" "$repo_root") || resolved_model=""
