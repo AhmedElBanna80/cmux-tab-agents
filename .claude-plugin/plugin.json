@@ -1,7 +1,7 @@
 {
   "name": "cmux-tab-agents",
   "description": "Claude Code subagent dispatcher for cmux: spawn the implementer/spec-reviewer/code-reviewer pipeline as real claude processes in cmux tabs, each in its own git worktree. Forks superpowers:subagent-driven-development with TDD discipline, verification iron law, and a hard prohibition on git --no-verify and other hook bypasses baked into every spawned tab-agent.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": {
     "name": "Ahmed El Banna",
     "email": "ahmed.henidy@alpheya.com"
