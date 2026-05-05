@@ -48,36 +48,34 @@ error() {
   exit 1
 }
 
+run_tests() {
+  if [[ -f package.json ]] && grep -q '"test"' package.json 2>/dev/null; then
+    log "Running npm test..."
+    npm test 2>&1
+  elif [[ -f Makefile ]] && grep -q '^test:' Makefile 2>/dev/null; then
+    log "Running make test..."
+    make test 2>&1
+  elif [[ -f pytest.ini ]] || [[ -d tests ]] && [[ -f "tests/__init__.py" ]]; then
+    log "Running pytest..."
+    python -m pytest 2>&1
+  elif [[ -f go.mod ]]; then
+    log "Running go test..."
+    go test ./... 2>&1
+  else
+    log "WARNING: Could not auto-detect test command. Skipping test execution."
+    log "To enforce tests, add one of: npm test, make test, pytest, go test"
+    return 0
+  fi
+}
+
 # ============================================================================
 # VERIFICATION GATE: Tests must pass before any finish action
 # ============================================================================
 
 log "Running verification gate (tests must pass)..."
 
-# Try to detect and run test command. Common patterns:
-if [[ -f package.json ]] && grep -q '"test"' package.json 2>/dev/null; then
-  log "Running npm test..."
-  if ! npm test 2>&1; then
-    error "Tests failed. Aborting finish action. Fix tests and re-run."
-  fi
-elif [[ -f Makefile ]] && grep -q '^test:' Makefile 2>/dev/null; then
-  log "Running make test..."
-  if ! make test 2>&1; then
-    error "Tests failed. Aborting finish action. Fix tests and re-run."
-  fi
-elif [[ -f pytest.ini ]] || [[ -d tests ]] && [[ -f "tests/__init__.py" ]]; then
-  log "Running pytest..."
-  if ! python -m pytest 2>&1; then
-    error "Tests failed. Aborting finish action. Fix tests and re-run."
-  fi
-elif [[ -f go.mod ]]; then
-  log "Running go test..."
-  if ! go test ./... 2>&1; then
-    error "Tests failed. Aborting finish action. Fix tests and re-run."
-  fi
-else
-  log "WARNING: Could not auto-detect test command. Skipping verification gate."
-  log "To enforce tests, add one of: npm test, make test, pytest, go test"
+if ! run_tests; then
+  error "Tests failed. Aborting finish action. Fix tests and re-run."
 fi
 
 log "Verification gate passed."
@@ -102,7 +100,9 @@ case "$FINISH_MODE" in
 
     # Push branch (idempotent: ok if already pushed)
     log "Pushing branch '$branch' to $remote..."
-    git push -u "$remote" "$branch" 2>&1 || true
+    if ! git push -u "$remote" "$branch" 2>&1; then
+      log "WARNING: Failed to push branch. Check git auth and network connectivity."
+    fi
 
     # Check if PR already exists (idempotent)
     log "Checking for existing PR..."
@@ -174,12 +174,10 @@ case "$FINISH_MODE" in
 
     # Re-run verification on merged code
     log "Re-running verification gate after merge..."
-    if [[ -f package.json ]] && grep -q '"test"' package.json 2>/dev/null; then
-      if ! npm test 2>&1; then
-        log "Tests failed after merge. Aborting and reverting merge."
-        git reset --hard HEAD~1
-        error "Post-merge tests failed. Merge reverted. Fix code and try again."
-      fi
+    if ! run_tests; then
+      log "Tests failed after merge. Aborting and reverting merge."
+      git reset --hard HEAD~1
+      error "Post-merge tests failed. Merge reverted. Fix code and try again."
     fi
 
     # If all green, remove worktree
