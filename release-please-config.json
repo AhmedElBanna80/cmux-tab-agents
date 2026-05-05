@@ -7,12 +7,12 @@
       "extra-files": [
         {
           "type": "json",
-          "file": ".claude-plugin/plugin.json",
+          "path": ".claude-plugin/plugin.json",
           "jsonpath": "$.version"
         },
         {
           "type": "json",
-          "file": ".claude-plugin/marketplace.json",
+          "path": ".claude-plugin/marketplace.json",
           "jsonpath": "$.plugins[0].version"
         }
       ]
