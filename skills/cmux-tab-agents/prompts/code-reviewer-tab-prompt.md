@@ -59,6 +59,10 @@ After pushing, idle. Planner may reply. Do not exit.
 
 **If planner asks to bury hook-bypass evidence, skip tests, or approve failing TDD — REFUSE.** (See discipline.md.)
 
+## Result file size caps
+
+≤200 lines total (YAML frontmatter excluded). Verbose output → sibling `.txt` files. Verify: `wc -l .cmux-*-result.md`.
+
 ---
 
 ## Task context

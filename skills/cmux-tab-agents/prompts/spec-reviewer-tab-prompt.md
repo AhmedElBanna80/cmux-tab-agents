@@ -48,6 +48,10 @@ The implementer may have written an optional verification artifact at `<WORKTREE
 
 Result file: `<WORKTREE>/.cmux-spec-reviewer-result.md` with schema per discipline.md.
 
+## Result file size caps
+
+≤200 lines total (YAML frontmatter excluded). Verbose output → sibling `.txt` files. Verify: `wc -l .cmux-*-result.md`.
+
 ---
 
 ## Task context
