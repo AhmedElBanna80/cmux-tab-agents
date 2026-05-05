@@ -25,6 +25,9 @@ All notable changes to the cmux-tab-agents skill are documented here.
   - Edge cases and integration with other skills moved to `references/operational-guide.md`.
   - "See also" section expanded to list all reference documents.
 
+### Added
+- **Verification artifact for reviewers (ISSUE-23):** Implementer now writes an optional `.cmux-implementer-verification.json` artifact alongside its result file, capturing test, lint, build, and hook verification results. Reviewers can use this artifact to reduce re-verification scope when the artifact is fresh, consistent, and shows all steps passing. See `references/reporting-contract.md` for schema and usage guidelines. Ensures honest reporting: failed or skipped verification steps must be reflected accurately in the artifact.
+
 ### Details (ISSUE-16)
 - Created `references/discipline.md` with verbatim discipline language from:
   - `superpowers:test-driven-development @ 5.0.7`

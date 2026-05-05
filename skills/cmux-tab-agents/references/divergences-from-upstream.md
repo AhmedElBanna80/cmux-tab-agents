@@ -133,6 +133,27 @@ v0.2.0 introduced `--model <id>` for per-task model selection. v0.3.0 layers on 
 
 Rationale: per-task model selection keeps prompt discipline tight (TDD, verification, hook-bypass prohibition) while letting mechanical work use cheaper models and ambitious work use stronger ones — without flag clutter. Now defaults (via env or config) enable the same choice without flagging every dispatch.
 
+### 15. Verification artifact for reviewers (v0.3.0, additive)
+
+| Upstream | This fork |
+|---|---|
+| Reviewers always re-run full verification (tests, lint, build, hooks) | Reviewers may optionally reduce re-verification scope if the implementer's verification artifact is fresh and consistent |
+
+The implementer writes a `.cmux-implementer-verification.json` artifact alongside its result file, capturing the results of its own verification commands (tests, lint, build, hooks). The artifact includes the commit sha, a timestamp, and the status of each verification step.
+
+When reading the artifact, reviewers check:
+1. Is `implementer_sha` the current HEAD commit?
+2. Is `timestamp` recent (within last hour)?
+3. Are all status fields `passed` (not `failed` or `skipped`)?
+
+If all three checks pass, reviewers **may** downgrade to spot-checks (subset of tests, skim lint output, confirm hook claim). If any check fails, reviewers perform full re-verification and flag the artifact state as a concern.
+
+**Why:** Implementer verification is expensive—two independent full re-runs on every task (spec-reviewer + code-reviewer) plus more on review loops. The artifact is a hint, not a substitute for skepticism. Reviewers remain in control: full re-run always remains the fallback when anything looks off.
+
+**Honest reporting required:** Implementer must report failed or skipped steps accurately in the artifact; reviewers will full-re-verify if they see failures/omissions.
+
+See `references/reporting-contract.md` for schema and `prompts/implementer-tab-prompt.md` for implementer instructions.
+
 ## Re-syncing
 
 When upstream `superpowers/X.Y.Z` ships:

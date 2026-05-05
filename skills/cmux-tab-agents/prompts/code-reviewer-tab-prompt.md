@@ -33,6 +33,8 @@ Read `<WORKTREE>/skills/cmux-tab-agents/references/discipline.md` before doing a
 
 **Implementer's commit:** `<IMPLEMENTER_SHA>` (or find via `git log` for branch). See task context.
 
+**Verification artifact (optional):** The implementer may have written a verification artifact at `<WORKTREE>/.cmux-implementer-verification.json`. If present and fresh (sha matches HEAD, timestamp < 1 hour, all statuses `passed`), you **may** reduce re-verification scope. Otherwise, perform full re-verification independently. See `references/reporting-contract.md` for schema.
+
 **Task:** See task context section.
 
 ## Your Job

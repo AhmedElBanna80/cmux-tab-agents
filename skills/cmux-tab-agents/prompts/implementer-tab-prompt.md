@@ -76,6 +76,10 @@ While you work, if you encounter something unexpected or unclear, **stop and wri
 
 ---
 
+## Verification artifact
+
+Before declaring DONE, write a verification artifact alongside your result file to help reviewers optimize re-verification. See `<WORKTREE>/skills/cmux-tab-agents/references/reporting-contract.md` under "Verification artifact" for the schema. Capture tests, lint, build, and hook results — report honestly if any step failed or was skipped.
+
 ## Task context
 
 **Ticket:** {{TICKET}}
