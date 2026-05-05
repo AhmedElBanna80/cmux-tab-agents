@@ -1,6 +1,9 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to cmux-tab-agents will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
@@ -12,6 +15,7 @@ All notable changes to this project will be documented in this file.
     - Prompt prefixes are byte-identical across dispatches with different task text
     - No placeholders appear in the cacheable prefix region
     - All placeholders are confined to the tail section
+- **ISSUE-21: `--fix-only` re-dispatch mode** for `dispatch-implementer.sh`: Boot implementer with stripped seed (identity + worktree + result-file contract + reviewer feedback only, ~47 lines vs 502) for small, localized reviewer-driven fixes. Saves tokens and wall-time while preserving implementer's mental model. Requires `--feedback-from-previous-review`; task text becomes optional. See `references/dispatch-reference.md` for usage and decision tree.
 - **ISSUE-22: poll-result.sh output modes** — Added output mode flags to reduce token cost during polling:
   - `--full` flag: Restore original behavior (emit entire result file)
   - `--frontmatter-only` flag: Emit only YAML frontmatter (cheapest read)

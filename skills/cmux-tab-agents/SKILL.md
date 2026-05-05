@@ -107,7 +107,7 @@ All scripts live at `~/.claude/skills/cmux-tab-agents/scripts/`. They must be ru
 - `--planner-surface <ref>` — where tab-agents push terminal-state lines (defaults to auto-detected)
 - `--model <model-id>` — override Claude model
 
-For detailed examples and all parameters, see `references/dispatch-reference.md`.
+For detailed examples, all parameters, and `--fix-only` mode, see `references/dispatch-reference.md`.
 
 ## Polling for results
 
@@ -195,24 +195,32 @@ cmux send-key --surface "<agent-surface>" enter
 
 The agent receives the guidance as a new user-message turn, processes it, and pushes again at the next push moment. Your reply replaces a re-dispatch in the cases where the agent only needs a small nudge.
 
-#### Two valid responses to `ISSUES_FOUND`
+#### Three valid responses to `ISSUES_FOUND`
 
-When a reviewer pushes `[<TICKET>-<phase>] ISSUES_FOUND: <summary>`, you have two valid paths:
+When a reviewer pushes `[<TICKET>-<phase>] ISSUES_FOUND: <summary>`, you have three valid paths:
 
-1. **Re-dispatch the implementer** with `--feedback-from-previous-review "$(cat <reviewer-result-file>)"`. Spawns a fresh tab with clean context. The previous implementer's tab idles; the new one starts from zero.
-2. **Reply directly** to the existing implementer's surface with the issues. No re-dispatch, same context, less spawn overhead. The implementer keeps everything it learned about the codebase in working memory.
+1. **Re-dispatch the implementer with `--fix-only`** (preferred for small fixes).
+   ```bash
+   dispatch-implementer.sh --ticket ALPM-1234-1 --title "..." --slug "..." \
+     --fix-only --feedback-from-previous-review "$(cat $WT/.cmux-spec-reviewer-result.md)"
+   ```
+   Spawns a fresh tab with a stripped seed: identity + worktree + reviewer feedback only, no full task scaffolding. Saves tokens and wall-time. Use for minor, localized fixes.
 
-Pick (1) when:
-- The implementer's context is polluted (long backlog, off-topic detours, many failed attempts).
-- You want to switch the implementer's `--model` for the fix (e.g. escalate to a stronger model for a tricky bug).
-- The fix scope is large enough that a fresh start beats inherited context.
+2. **Re-dispatch the implementer with full seed** (preferred for large or structural fixes).
+   ```bash
+   dispatch-implementer.sh --ticket ALPM-1234-1 --title "..." --slug "..." \
+     --task-text "..." --feedback-from-previous-review "$(cat $WT/.cmux-spec-reviewer-result.md)"
+   ```
+   Spawns a fresh tab with clean context from zero. The previous tab idles. Use when the fix is large, the context is polluted, or you're switching `--model`.
 
-Pick (2) when:
-- The implementer is fresh and the issues are minor.
-- The implementer is clearly close to a working answer and you want to nudge, not restart.
-- You want to preserve the implementer's mental model of the code.
+3. **Reply directly** to the existing implementer's surface with the issues. No re-dispatch, same context, less spawn overhead. The implementer keeps everything it learned about the codebase in working memory. Use when the implementer is clearly close and you want to nudge, not restart.
 
-Default to (2) for small fixes; default to (1) for large or ambiguous ones. Both are correct — the goal is to keep iteration cheap without losing context that would make the next attempt better.
+**Decision tree:**
+- Small, localized fixes + implementer context is fresh? → Path (1) `--fix-only`
+- Large/structural fixes OR context polluted OR switching `--model`? → Path (2) full re-dispatch
+- Implementer is close and needs a nudge? → Path (3) direct reply
+
+All three are correct — the goal is to keep iteration cheap without losing context.
 
 #### The trust caveat applies in both directions
 

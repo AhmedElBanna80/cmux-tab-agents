@@ -19,7 +19,8 @@ Usage: $0 --ticket TICKET --title TITLE --slug SLUG \\
           [--model MODEL_ID] \\
           [--effort LEVEL] \\
           [--implementer-sha SHA] \\
-          [--feedback-from-previous-review TEXT_OR_PATH]
+          [--feedback-from-previous-review TEXT_OR_PATH] \\
+          [--fix-only]
 EOF
   exit 1
 }
@@ -105,7 +106,7 @@ resolve_setting() {
 
 dispatch_main() {
   local TICKET="" TITLE="" SLUG="" TASK_TEXT="" TASK_FILE=""
-  local TYPE="" PLANNER_WS="" PLANNER_SURFACE="" MODEL="" EFFORT="" IMPL_SHA="" FEEDBACK=""
+  local TYPE="" PLANNER_WS="" PLANNER_SURFACE="" MODEL="" EFFORT="" IMPL_SHA="" FEEDBACK="" FIX_ONLY=0
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -121,6 +122,7 @@ dispatch_main() {
       --effort)              EFFORT="$2"; shift 2 ;;
       --implementer-sha)     IMPL_SHA="$2"; shift 2 ;;
       --feedback-from-previous-review) FEEDBACK="$2"; shift 2 ;;
+      --fix-only)            FIX_ONLY=1; shift ;;
       -h|--help)             usage ;;
       *) echo "$0: unknown arg '$1'" >&2; usage ;;
     esac
@@ -130,12 +132,19 @@ dispatch_main() {
   [[ -z "$TITLE"  ]] && { echo "$0: --title required"  >&2; usage; }
   [[ -z "$SLUG"   ]] && { echo "$0: --slug required"   >&2; usage; }
 
-  if [[ -n "$TASK_FILE" && -n "$TASK_TEXT" ]]; then
-    echo "$0: pass exactly one of --task-text or --task-file" >&2; usage
+  # --fix-only mode: feedback required, task optional
+  if [[ $FIX_ONLY -eq 1 ]]; then
+    [[ -z "$FEEDBACK" ]] && { echo "$0: --fix-only requires --feedback-from-previous-review" >&2; usage; }
+  else
+    # Normal mode: task required
+    if [[ -n "$TASK_FILE" && -n "$TASK_TEXT" ]]; then
+      echo "$0: pass exactly one of --task-text or --task-file" >&2; usage
+    fi
+    if [[ -z "$TASK_TEXT" && -z "$TASK_FILE" ]]; then
+      echo "$0: --task-text or --task-file required" >&2; usage
+    fi
   fi
-  if [[ -z "$TASK_TEXT" && -z "$TASK_FILE" ]]; then
-    echo "$0: --task-text or --task-file required" >&2; usage
-  fi
+
   if [[ -n "$TASK_FILE" ]]; then
     [[ -r "$TASK_FILE" ]] || { echo "$0: cannot read --task-file '$TASK_FILE'" >&2; exit 1; }
     TASK_TEXT="$(cat "$TASK_FILE")"
@@ -196,7 +205,12 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
   fi
 
   # 2. Render seed prompt for this phase.
-  local TEMPLATE="$SKILL_ROOT/prompts/${PHASE}-tab-prompt.md"
+  local TEMPLATE
+  if [[ $FIX_ONLY -eq 1 && "$PHASE" == "implementer" ]]; then
+    TEMPLATE="$SKILL_ROOT/prompts/${PHASE}-fix-only-tab-prompt.md"
+  else
+    TEMPLATE="$SKILL_ROOT/prompts/${PHASE}-tab-prompt.md"
+  fi
   [[ -r "$TEMPLATE" ]] || { echo "$0: missing template $TEMPLATE" >&2; exit 1; }
 
   local RENDERED="$WT/.cmux-tab-prompt-${PHASE}.md"

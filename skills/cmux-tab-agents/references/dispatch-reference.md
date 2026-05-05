@@ -22,6 +22,30 @@ For re-dispatch after review feedback, pass the previous review's findings:
 ... --feedback-from-previous-review "$(cat $WT/.cmux-spec-reviewer-result.md)"
 ```
 
+For small, focused fixes after a review (preferred for minor issues), use `--fix-only`:
+
+```bash
+... --fix-only --feedback-from-previous-review "$(cat $WT/.cmux-spec-reviewer-result.md)"
+```
+
+When `--fix-only` is used:
+- The implementer boots with a **stripped seed**: identity, worktree, result-file contract, and the reviewer's feedback only — **no full task scaffolding**.
+- `--task-text` and `--task-file` become optional (the existing code in the worktree is the task).
+- `--feedback-from-previous-review` becomes **required**.
+- The implementer is instructed to apply ONLY the reviewer's fixes, not re-derive the task.
+- All discipline rules (TDD, hooks, verification) still apply.
+
+**When to use `--fix-only`:**
+- The reviewer found minor, localized issues (e.g., "add email regex check", "fix type annotation on line 42").
+- The implementer's context is still fresh and relevant.
+- You want to save tokens and wall-time by reusing the implementer's existing mental model of the codebase.
+
+**When to use full re-dispatch (omit `--fix-only`):**
+- The reviewer found structural or design issues requiring significant rework.
+- The implementer's context is polluted (long backlog, many failed attempts).
+- You want to switch the implementer's `--model` for a trickier fix.
+- The fix scope is large enough that a clean slate is faster.
+
 The script:
 1. Provisions the worktree (idempotent — resumes if it exists).
 2. Renders the seed prompt.
