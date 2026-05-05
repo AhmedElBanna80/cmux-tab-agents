@@ -122,9 +122,11 @@ case "$FINISH_MODE" in
     log "Creating new PR..."
     pr_args=("--title" "$(git log -1 --format=%s)")
 
-    # Build PR body with auto-close if issue found
-    body="Resolves #$issue"
-    pr_args+=(--body "$body")
+    # Build PR body with auto-close if issue found (no auto-close for non-ISSUE branches)
+    if [[ -n "$issue" ]]; then
+      body="Resolves #$issue"
+      pr_args+=(--body "$body")
+    fi
 
     if pr_url=$(gh pr create "${pr_args[@]}" 2>&1); then
       log "PR created: $pr_url"

@@ -102,5 +102,49 @@ else
   fail "missing test command handling unclear: $out"
 fi
 
+# T10: tests-fail-aborts — finish-task.sh exits non-zero when tests fail
+# Tests the verification gate: if tests fail, finish-task.sh should abort without action
+fail_test_tmpdir=$(mktemp -d)
+trap 'rm -rf "$fail_test_tmpdir"' EXIT
+cd "$fail_test_tmpdir"
+
+# Create a repo with a failing test
+git init -q .
+git config user.email "test@example.com"
+git config user.name "Test User"
+
+# Create package.json with a test script that fails
+cat > package.json <<EOF
+{
+  "name": "test-repo",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "exit 1"
+  }
+}
+EOF
+
+touch file.txt
+git add package.json file.txt
+git commit -q -m "initial with failing test"
+
+# Call finish-task.sh keep mode with failing tests
+out=$("$FINISH_TASK" keep "$fail_test_tmpdir" 2>&1)
+exit_code=$?
+
+# Verify it exits non-zero
+if [[ $exit_code -ne 0 ]]; then
+  pass "tests-fail-aborts: finish-task exits non-zero when tests fail"
+else
+  fail "tests-fail-aborts: finish-task should exit non-zero, got exit code $exit_code"
+fi
+
+# Verify error message mentions test failure
+if printf '%s' "$out" | grep -qiE "failed|abort"; then
+  pass "tests-fail-aborts: error message indicates test failure"
+else
+  fail "tests-fail-aborts: error message missing test failure indicator: $out"
+fi
+
 printf '\n=== Results: %d passed, %d failed, %d skipped ===\n' "$PASS" "$FAIL" "$SKIP"
 [[ "$FAIL" -eq 0 ]]
