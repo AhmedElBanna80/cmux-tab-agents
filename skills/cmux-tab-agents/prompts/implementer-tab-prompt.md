@@ -90,6 +90,23 @@ Replace `<WORKTREE>` with the value from the Task context section below.
 
 After your implementation is `DONE`, you are the **task lead** — you drive the review loop without planner involvement. Max iterations: `{{MAX_LOOP_ITERATIONS}}` (default 5).
 
+### Pre-dispatch check — ensure worktree exists
+
+Before dispatching reviewers, verify the worktree directory still exists. If it was deleted, recreate it from the current branch:
+
+```bash
+WORKTREE_PATH="/Users/banna/POC/worktrees/cmux-tab-agents/{{TICKET}}/cmux-tab-agents"
+if [ ! -d "$WORKTREE_PATH" ]; then
+  echo "[impl] WARNING: Worktree directory was deleted. Recreating from current branch..."
+  mkdir -p "$(dirname "$WORKTREE_PATH")"
+  git worktree add "$WORKTREE_PATH" --detach HEAD || {
+    echo "[impl] ERROR: Could not recreate worktree. Aborting spec-reviewer dispatch."
+    exit 1
+  }
+  cd "$WORKTREE_PATH" || exit 1
+fi
+```
+
 ### Step 1 — dispatch spec-reviewer
 
 ```bash

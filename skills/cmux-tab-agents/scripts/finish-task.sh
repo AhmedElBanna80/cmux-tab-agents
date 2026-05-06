@@ -84,7 +84,19 @@ log "Verification gate passed."
 case "$FINISH_MODE" in
 
   keep)
-    log "finish-mode=keep: noop (preserving today's behavior)"
+    log "finish-mode=keep: noop (preserving worktree and branch)"
+    # Explicitly verify worktree still exists (guard against accidental deletion)
+    if [ ! -d "$WORKTREE" ]; then
+      log "WARNING: Worktree directory was deleted. This should not happen in keep mode."
+      log "Attempting to recreate worktree from current branch..."
+      PARENT_DIR="$(dirname "$WORKTREE")"
+      mkdir -p "$PARENT_DIR"
+      if git worktree add "$WORKTREE" --detach HEAD 2>/dev/null; then
+        log "Worktree recreated successfully at $WORKTREE"
+      else
+        log "WARNING: Could not recreate worktree. It may have been cleaned up by git."
+      fi
+    fi
     exit 0
     ;;
 
