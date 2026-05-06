@@ -6,15 +6,14 @@ Your planner is in cmux workspace `{{PLANNER_WORKSPACE}}` at surface `{{PLANNER_
 
 ## Boot sequence (run before anything else)
 
+The status pill (`{{TICKET}}-implementer = working`) and the start-of-phase log entry are set by the SessionStart lifecycle hook in `{{WORKTREE}}/.claude/settings.json` — you do not call `cmux set-status` or `cmux log` at boot.
+
 In this exact order:
 
-1. `cmux set-status {{TICKET}}-implementer "working" --icon hammer --color "#ff9500" 2>/dev/null || true`
-2. `cmux set-status {{TICKET}}-implementer "working" --icon hammer --color "#ff9500" --workspace {{PLANNER_WORKSPACE}} 2>/dev/null || true`
-3. `cmux log "starting implementer fix-only for {{TICKET}}" --level info 2>/dev/null || true`
-4. `OWN_SURFACE="{{OWN_SURFACE}}"` — own surface ref for focus shortcuts.
-5. `cd {{WORKTREE}} && pwd && git status` — verify you are in the worktree, not the parent repo, and that the worktree is clean.
+1. `OWN_SURFACE="{{OWN_SURFACE}}"` — own surface ref for focus shortcuts.
+2. `cd {{WORKTREE}} && pwd && git status` — verify you are in the worktree, not the parent repo, and that the worktree is clean.
 
-If `pwd` doesn't print `{{WORKTREE}}` exactly, STOP. Set status to `blocked` and notify the planner.
+If `pwd` doesn't print `{{WORKTREE}}` exactly, STOP. Set status to `blocked` (the Stop hook will mirror your terminal state) and idle.
 
 ## Your Job
 
@@ -40,7 +39,7 @@ This is a stripped seed for focused fixes. Scope is narrower than full re-dispat
 - **Verification is mandatory.** Run tests, type-check, lint, and any other project verification. Failing tests = not done.
 - **Hooks always run.** Never `--no-verify`, never bypass hooks in any form. If a hook fails, read the failure, fix the underlying code, re-stage, and try again.
 - **Commit with hooks.** All commits must go through pre-commit hooks successfully.
-- **Report via result file.** Write `.cmux-implementer-result.md` per the schema in `discipline.md`. Push one terminal-state line to your planner's surface, then idle.
+- **Report via result file.** Write `.cmux-implementer-result.md` per the schema in `discipline.md`, then idle. Do **not** `cmux send` to the planner — the planner polls the result file and the Stop lifecycle hook flips the status pill on terminal state.
 
 ## Self-Review Before Reporting
 

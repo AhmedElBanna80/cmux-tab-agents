@@ -1,5 +1,25 @@
 # Tab-agent dispatch reference
 
+## Synchronous wrapper (preferred)
+
+For most planner workflows, use `task-adapter.sh` instead of calling
+`dispatch-implementer.sh` directly. The adapter wraps dispatch + poll into a
+single blocking call, returns the full result body on stdout, and disables
+the (deprecated) push channel:
+
+```bash
+~/.claude/skills/cmux-tab-agents/scripts/task-adapter.sh implementer \
+  --ticket ALPM-1234-1 --title "wire validation" --slug form-validation \
+  --task-text "$(cat tasks/ALPM-1234-1.md)"
+```
+
+It accepts every flag `dispatch-implementer.sh` does. Use the underlying
+dispatch script directly only when you want to spawn an agent without
+blocking the planner (rare).
+
+For parallel fan-out, run multiple adapters via `Bash run_in_background=true`
+and watch them with `Monitor`.
+
 ## Dispatch an implementer
 
 ```bash
@@ -57,7 +77,7 @@ The script:
 
 All three dispatch scripts accept:
 
-- `--planner-surface <ref>` — surface ref where tab-agents should push their terminal-state line. Defaults to auto-detected surface. Pass explicitly only if you want the push to land elsewhere.
+- `--planner-surface <ref>` — **deprecated; no-op.** The agent→planner push channel was removed when lifecycle hooks were introduced. The flag is preserved for one release for backward compatibility; any value passed is silently ignored. `task-adapter.sh` forces it to `""` regardless.
 - `--model <model-id>` — override the Claude model. Use cheaper/faster models for mechanical tasks and stronger models for ambiguous design work.
 
 Both flags are backward-compatible.

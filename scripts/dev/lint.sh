@@ -12,7 +12,7 @@ if ! command -v shellcheck >/dev/null 2>&1; then
   printf 'WARN: shellcheck not installed; skipping shell lint. brew install shellcheck\n'
 else
   shellcheck_ok=1
-  for dir in "$REPO_ROOT/skills/cmux-tab-agents/scripts" "$REPO_ROOT/scripts/dev"; do
+  for dir in "$REPO_ROOT/skills/cmux-tab-agents/scripts" "$REPO_ROOT/skills/cmux-tab-agents/hooks" "$REPO_ROOT/scripts/dev"; do
     if [[ -d "$dir" ]]; then
       while IFS= read -r f; do
         # -x: follow source directives so cross-file usage is visible.
