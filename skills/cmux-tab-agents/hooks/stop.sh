@@ -34,8 +34,11 @@ PHASE_FILE="$WT/.cmux-${PHASE}-result.md"
 # Safety net: if the agent crashed before writing its result file, drop a
 # minimal BLOCKED stub so the planner's poll exits cleanly. We never
 # overwrite an agent-authored file; the schema is the prompt's responsibility.
+# Write to a temp file and rename atomically so a partial write (disk full,
+# read-only FS, SIGKILL mid-write) never leaves a torn file in place.
 if [[ ! -f "$PHASE_FILE" ]]; then
-  cat > "$PHASE_FILE" <<EOF
+  TMP="$PHASE_FILE.tmp.$$"
+  cat > "$TMP" 2>/dev/null <<EOF
 ---
 ticket: ${TICKET}
 phase: ${PHASE}
@@ -58,6 +61,12 @@ wrote this stub so the planner's poll terminates instead of hanging.
 - Inspect \`${WT}/.cmux-events.jsonl\` for the last tool the agent ran.
 - Re-dispatch the phase if the cause was transient.
 EOF
+  WRITE_RC=$?
+  if [[ $WRITE_RC -eq 0 && -s "$TMP" ]]; then
+    mv "$TMP" "$PHASE_FILE" 2>/dev/null || rm -f "$TMP" 2>/dev/null || true
+  else
+    rm -f "$TMP" 2>/dev/null || true
+  fi
 fi
 
 # Decide the terminal pill state. If the result file (agent-authored or stub)
