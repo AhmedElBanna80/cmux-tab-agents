@@ -11,6 +11,7 @@ TEST_DIR=$(mktemp -d)
 trap 'rm -rf "$TEST_DIR"' EXIT
 
 # Source the script to get the function
+# shellcheck source=/dev/null
 source "$DISPATCH_COMMON"
 
 # Test 1: Function exists and is callable
