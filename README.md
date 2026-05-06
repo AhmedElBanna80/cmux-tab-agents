@@ -165,6 +165,45 @@ And one in-band channel:
 
 - A YAML-frontmatter **result file** at `<worktree>/.cmux-<phase>-result.md`. The planner polls it via `scripts/poll-result.sh`. Schema in [`skills/cmux-tab-agents/references/reporting-contract.md`](skills/cmux-tab-agents/references/reporting-contract.md).
 
+## Session Persistence with crex
+
+To automatically save your cmux workspace state when Claude stops, install [`crex`](https://github.com/drolosoft/cmux-resurrect) (cmux-resurrect):
+
+```bash
+brew install drolosoft/tap/crex
+```
+
+Then configure your Claude Code to auto-save on session end. Add this to `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "crex save $(date +%Y%m%d-%H%M%S) 2>/dev/null || true",
+            "statusMessage": "Saving cmux workspace..."
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**How it works:**
+- On every Claude session end (Ctrl+C, `/clear`, or exit), the hook runs `crex save <timestamp>`
+- Saves all cmux tabs, panes, layouts, and working directories with a timestamped name
+- On the next cmux launch, restore with: `crex restore <timestamp>` (e.g., `crex restore 20260506-143022`)
+
+**Why this matters:**
+- Tab-agents run across multiple worktrees and can take time to complete
+- If cmux crashes or you close the terminal, all agent state is persisted on disk (result files survive)
+- crex restores your workspace layout so you can resume watching without manually re-opening tabs
+
 ## Configuration
 
 Defaults work out of the box for most repos. Two override mechanisms when needed:
