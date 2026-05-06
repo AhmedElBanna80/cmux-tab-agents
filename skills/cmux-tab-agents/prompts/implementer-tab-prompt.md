@@ -127,7 +127,19 @@ dispatch-code-reviewer.sh \
 - **ISSUES_FOUND** → fix issues (TDD), commit, then re-dispatch code-reviewer. Increment counter.
   - Same circuit-breaker rules as Step 2.
 
-### Step 5 — finish and report
+### Step 5 — save session state (crex)
+
+Before proceeding to final reporting, save your cmux workspace state for potential session restoration:
+
+```bash
+crex save "$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+```
+
+**Why:** If your session ends unexpectedly (crash, network issue, or deliberate exit), this allows the spec-reviewer or code-reviewer to resurrect the workspace and continue. The crex snapshot preserves tab layout, working directories, and incomplete state across session boundaries.
+
+**No error if crex is not installed** — the `|| true` ensures the workflow continues regardless.
+
+### Step 7 — finish and report
 
 When **both reviewers have APPROVED**:
 
