@@ -131,9 +131,15 @@ dispatch-code-reviewer.sh \
 
 When **both reviewers have APPROVED**:
 
-1. Run `{{SKILL_BASE}}/scripts/finish-task.sh {{FINISH_MODE}} <WORKTREE>`.
-2. Write `.cmux-task-result.md` (schema in `references/reporting-contract.md`).
-3. Push **one line** to planner:
+1. Save the session:
+
+```bash
+CREX_SESSION="$(scripts/crex-save.sh 2>/dev/null || echo '')"
+```
+
+2. Run `{{SKILL_BASE}}/scripts/finish-task.sh {{FINISH_MODE}} <WORKTREE>`.
+3. Write `.cmux-task-result.md` (schema in `references/reporting-contract.md`), include `crex_session: $CREX_SESSION` in the frontmatter.
+4. Push **one line** to planner:
 
 ```bash
 cmux send --surface "{{PLANNER_SURFACE}}" \
@@ -141,7 +147,7 @@ cmux send --surface "{{PLANNER_SURFACE}}" \
 cmux send-key --surface "{{PLANNER_SURFACE}}" enter
 ```
 
-4. Idle.
+5. Idle.
 
 ### Circuit-breaker (hard rule)
 
