@@ -36,11 +36,10 @@ The remainder of this prompt is task-specific.
 
 ## Boot sequence
 
-1. `cmux set-status <TICKET>-implementer "working" --icon hammer --color "#ff9500" 2>/dev/null || true`
-2. `cmux set-status <TICKET>-implementer "working" --icon hammer --color "#ff9500" --workspace <PLANNER_WORKSPACE> 2>/dev/null || true`
-3. `cmux log "starting implementer for <TICKET>" --level info 2>/dev/null || true`
-4. `OWN_SURFACE="{{OWN_SURFACE}}"` — own surface ref for focus shortcuts.
-5. `cd <WORKTREE> && pwd && git status` — verify worktree path and clean state. (Use values from task context below.)
+The status pill (`<TICKET>-implementer = working`) and the start-of-phase log entry are set by the SessionStart lifecycle hook in `<WORKTREE>/.claude/settings.json` — you do not call `cmux set-status` or `cmux log` at boot.
+
+1. `OWN_SURFACE="{{OWN_SURFACE}}"` — own surface ref for focus shortcuts.
+2. `cd <WORKTREE> && pwd && git status` — verify worktree path and clean state. (Use values from task context below.)
 
 If pwd doesn't match the worktree path exactly, STOP. Set status to `blocked` and notify planner.
 
@@ -124,7 +123,7 @@ Wait on your input box. The spec-reviewer will push back to `$OWN_SURFACE` (= `{
 
 - **APPROVED** → proceed to Step 3 (code-reviewer).
 - **ISSUES_FOUND** → fix issues (TDD red-green), commit, then re-dispatch spec-reviewer. Increment iteration counter.
-  - If the **same issue is flagged twice in a row** → BLOCKED escalation (write `.cmux-task-result.md` with `status: BLOCKED`, push to planner).
+  - If the **same issue is flagged twice in a row** → BLOCKED escalation (write `.cmux-task-result.md` with `status: BLOCKED`, idle; the Stop hook + result file inform the planner).
   - If **iteration counter ≥ {{MAX_LOOP_ITERATIONS}}** → BLOCKED escalation.
 
 ### Step 3 — dispatch code-reviewer
@@ -167,16 +166,8 @@ CREX_SESSION="$(scripts/crex-save.sh 2>/dev/null || echo '')"
 ```
 
 2. Run `{{SKILL_BASE}}/scripts/finish-task.sh {{FINISH_MODE}} <WORKTREE>`.
-3. Write `.cmux-task-result.md` (schema in `references/reporting-contract.md`), include `crex_session: $CREX_SESSION` in the frontmatter.
-4. Push **one line** to planner:
-
-```bash
-cmux send --surface "{{PLANNER_SURFACE}}" \
-  "[{{TICKET}}-implementer] DONE: <summary>. Result: <WORKTREE>/.cmux-task-result.md"
-cmux send-key --surface "{{PLANNER_SURFACE}}" enter
-```
-
-5. Idle.
+3. Write `.cmux-task-result.md` AND `.cmux-implementer-result.md` (schema in `references/reporting-contract.md`), include `crex_session: $CREX_SESSION` in the frontmatter.
+4. Idle. Do **not** push to the planner — the planner waits via `task-adapter.sh` / `poll-result.sh` and reads the result file directly. The Stop lifecycle hook will flip the `<TICKET>-implementer` pill to your terminal status and notify; no `cmux send` to the planner.
 
 ### Circuit-breaker (hard rule)
 
@@ -184,7 +175,7 @@ BLOCKED if either:
 - Same reviewer flags the **same issue in two consecutive rounds**, or
 - Total loop iterations ≥ `{{MAX_LOOP_ITERATIONS}}`.
 
-On BLOCKED: write `.cmux-task-result.md` with `status: BLOCKED`, push to `{{PLANNER_SURFACE}}`, idle.
+On BLOCKED: write `.cmux-task-result.md` with `status: BLOCKED`, idle. Do not push to the planner — the Stop hook flips the pill and the planner's poll picks up the file.
 
 ---
 

@@ -225,22 +225,21 @@ If the artifact is missing, stale (timestamp > 1 hour), has a mismatched sha, or
 - Perform full re-verification: run all tests, lint, build, and hooks independently.
 - Flag the artifact state as a concern in your result file if it signals incomplete or stale information.
 
-## Push line format (terminal states only)
+## Lifecycle hooks (terminal states)
 
-When a tab-agent reaches a terminal state (implementer: `DONE` / `DONE_WITH_CONCERNS` / `BLOCKED` / `NEEDS_CONTEXT`; reviewers: `APPROVED` / `ISSUES_FOUND`), it pushes two lines to the planner's input box:
+Tab-agents do **not** push terminal-state lines into the planner's input box anymore. Lifecycle side-effects are owned by hooks installed in the worktree's `.claude/settings.json`:
+
+- `SessionStart` → sets `<TICKET>-<phase>` pill to `working`, logs phase start.
+- `PostToolUse` (async) → appends a JSONL event to `<worktree>/.cmux-events.jsonl`.
+- `Stop` → flips the pill to the agent's terminal status (read from the result file's `status:` field), fires `cmux notify`. As a safety net, if the agent exited without writing a result file, the Stop hook writes a minimal `status: BLOCKED` stub annotated `authored_by: stop_hook_safety_net` so `poll-result.sh` exits cleanly. The hook **never overwrites** an agent-authored file.
+
+The reviewer→implementer push on `LEAD_SURFACE` still exists (it drives the task-lead loop). It carries the same one-line format as before:
 
 ```
-[<TICKET>-<phase>] <STATUS>: <one-line summary>. Result: <worktree>/.cmux-<phase>-result.md
-focus: cmux rpc surface.focus '{"surface_id":"surface:<N>"}'
+[<TICKET>-<phase>] <STATUS>: <one-line summary>. Result: .cmux-<phase>-result.md
 ```
 
-Example:
-```
-[ALPM-1234-1-implementer] DONE: wired up zod validation; 12 tests pass. Result: /Users/.../.cmux-implementer-result.md
-focus: cmux rpc surface.focus '{"surface_id":"surface:51"}'
-```
-
-The focus line is a copy-pastable shell command that jumps to the tab-agent's surface. It is always included (though the agent gracefully skips it if surface detection fails).
+The implementer is the only consumer; the planner does not see this push.
 
 ## Polling pattern
 

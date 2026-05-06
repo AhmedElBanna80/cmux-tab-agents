@@ -119,14 +119,20 @@ These divergences represent features and implementation details that emerged dur
 - `scripts/dispatch-code-reviewer.sh` (argument parsing, line ~30)
 - `scripts/_dispatch_common.sh` (resolution and model export, `dispatch_main()` function)
 
-### 4. Active push channel to planner's input box
+### 4. Lifecycle hooks own pill / log / notify (replaces agent→planner push)
 
-**Description:** Tab-agents push a one-line status update to the planner's input box on terminal state (DONE, DONE_WITH_CONCERNS, BLOCKED, NEEDS_CONTEXT, APPROVED, ISSUES_FOUND), inverting the polling model. The planner can reply directly to the agent's surface without re-spawning.
+**Description:** Each tab-agent's worktree has a generated `.claude/settings.json` registering three hooks: `SessionStart` sets the working pill and logs the phase start; `PostToolUse` (async) appends a JSONL event to `.cmux-events.jsonl`; `Stop` flips the pill to the agent's terminal status, fires `cmux notify`, and writes a minimal `status: BLOCKED` stub if the agent crashed before authoring its result file. The agent prompt remains the canonical author of result-file body and schema — Stop is a safety net, not the primary author.
+
+This replaces the previous active-push channel: tab-agents no longer `cmux send` a terminal-state line into the planner's input box. The planner blocks via `task-adapter.sh` (which wraps dispatch + `poll-result.sh`) and reads the result file directly. The reviewer→implementer push on `LEAD_SURFACE` is unchanged — it's the task-lead loop's coordination channel.
 
 **Where:**
-- `references/discipline.md` (section "Report Format and Push Protocol")
-- All three seed prompts (boot sequence, step 2)
-- `scripts/_dispatch_common.sh` (exports `PLANNER_SURFACE`)
+- `hooks/session_start.sh`, `hooks/post_tool_use.sh`, `hooks/stop.sh`, `hooks/lib_hook_common.sh`
+- `scripts/install-tab-hooks.sh` (writes the worktree's `.claude/settings.json` at dispatch time)
+- `scripts/task-adapter.sh` (planner-side sync wrapper)
+- `scripts/_dispatch_common.sh` (writes `.cmux-state/dispatch.json` and calls `install-tab-hooks.sh` before booting `claude`)
+- All three seed prompts (planner-targeted `cmux send` calls removed; pill/log/notify references removed from boot sequence)
+
+`--planner-surface` on dispatch scripts is now a no-op preserved for one release of backward compatibility.
 
 ### 5. Implementer drives spec/code review without planner loop
 

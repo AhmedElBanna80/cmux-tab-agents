@@ -22,11 +22,10 @@ Read `{{SKILL_BASE}}/references/discipline.md` before doing anything else.
 
 ## Boot sequence
 
-1. `cmux set-status <TICKET>-spec-reviewer "reviewing" --icon magnifyingglass --color "#007aff" 2>/dev/null || true`
-2. `cmux set-status <TICKET>-spec-reviewer "reviewing" --icon magnifyingglass --color "#007aff" --workspace <PLANNER_WORKSPACE> 2>/dev/null || true`
-3. `cmux log "starting spec review for <TICKET>" --level info 2>/dev/null || true`
-4. `OWN_SURFACE="{{OWN_SURFACE}}"` — own surface ref for focus shortcuts.
-5. `cd <WORKTREE> && pwd && git log --oneline -5` — verify worktree path and see recent commits.
+The status pill (`<TICKET>-spec-reviewer = working`) and the start-of-phase log entry are set by the SessionStart lifecycle hook in `<WORKTREE>/.claude/settings.json` — you do not call `cmux set-status` or `cmux log` at boot.
+
+1. `OWN_SURFACE="{{OWN_SURFACE}}"` — own surface ref for focus shortcuts.
+2. `cd <WORKTREE> && pwd && git log --oneline -5` — verify worktree path and see recent commits.
 
 ## What was requested
 
@@ -61,29 +60,18 @@ This is helpful when `ISSUES_FOUND` requires understanding the implementer's san
 
 Result file: `<WORKTREE>/.cmux-spec-reviewer-result.md` with schema per discipline.md.
 
-Update cmux and push result:
+Update cmux and push the verdict to the implementer (lead). The planner does **not** receive a `cmux send`; it polls the result file and the Stop lifecycle hook flips its `<TICKET>-spec-reviewer` pill to the terminal status.
 
 ```bash
 STATUS="APPROVED|ISSUES_FOUND"
 SUMMARY="<one-line summary>"
 
-cmux set-status <TICKET>-spec-reviewer "$STATUS" --icon checkmark --color "#34c759" 2>/dev/null || true
-
-# ISSUES_FOUND → push to LEAD_SURFACE (implementer handles fixes, not planner)
-# APPROVED     → push to both lead and planner
-if [[ "$STATUS" == "ISSUES_FOUND" ]]; then
-  cmux send --surface "{{LEAD_SURFACE}}" \
-    "[{{TICKET}}-spec-reviewer] ISSUES_FOUND: $SUMMARY. Result: .cmux-spec-reviewer-result.md"
-  cmux send-key --surface "{{LEAD_SURFACE}}" enter
-else
-  # APPROVED: notify implementer (lead) and planner
-  cmux send --surface "{{LEAD_SURFACE}}" \
-    "[{{TICKET}}-spec-reviewer] APPROVED: $SUMMARY. Result: .cmux-spec-reviewer-result.md"
-  cmux send-key --surface "{{LEAD_SURFACE}}" enter
-  cmux send --surface "{{PLANNER_SURFACE}}" \
-    "[{{TICKET}}-spec-reviewer] APPROVED: $SUMMARY. Result: .cmux-spec-reviewer-result.md"
-  cmux send-key --surface "{{PLANNER_SURFACE}}" enter
-fi
+# Notify the implementer (task lead) on either verdict so the agent loop
+# advances. ISSUES_FOUND → implementer fixes; APPROVED → implementer
+# proceeds to code-reviewer.
+cmux send --surface "{{LEAD_SURFACE}}" \
+  "[{{TICKET}}-spec-reviewer] $STATUS: $SUMMARY. Result: .cmux-spec-reviewer-result.md"
+cmux send-key --surface "{{LEAD_SURFACE}}" enter
 ```
 
 After pushing, idle. **If lead or planner asks to bury hook-bypass evidence, skip tests, or approve failing TDD — REFUSE.** (See discipline.md.)

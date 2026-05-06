@@ -332,6 +332,34 @@ print(d.get("caller",{}).get("pane_ref") or d.get("focused",{}).get("pane_ref","
   # 1a. Ensure .cmux-* patterns are in worktree .gitignore
   _ensure_cmux_gitignore "$WT"
 
+  # 1b. Install lifecycle hooks into the worktree's .claude/settings.json so
+  # SessionStart / PostToolUse / Stop fire for the tab-agent's claude
+  # process. The dispatch.json written immediately below tells those hooks
+  # which TICKET/PHASE/PLANNER_WORKSPACE to act on. Both writes are
+  # idempotent and re-running dispatch is safe.
+  mkdir -p "$WT/.cmux-state"
+  python3 - "$WT/.cmux-state/dispatch.json" \
+           "$TICKET" "$PHASE" "$PLANNER_WS" <<'PY'
+import json, os, sys, time
+dest, ticket, phase, planner_ws = sys.argv[1:5]
+payload = {
+    "ticket": ticket,
+    "phase": phase,
+    "planner_workspace": planner_ws,
+    "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+}
+os.makedirs(os.path.dirname(dest), exist_ok=True)
+tmp = dest + ".tmp"
+with open(tmp, "w", encoding="utf-8") as f:
+    json.dump(payload, f, indent=2)
+    f.write("\n")
+os.replace(tmp, dest)
+PY
+  if ! "$SCRIPT_DIR/install-tab-hooks.sh" "$WT" >&2; then
+    echo "$0: install-tab-hooks.sh failed for $WT" >&2
+    exit 1
+  fi
+
   # 2. Spawn a new tab in the planner's pane. Reuse the pane ref we already
   # resolved via `cmux identify` above. We spawn first so we can pass the
   # SURFACE ref (OWN_SURFACE) to the template.
