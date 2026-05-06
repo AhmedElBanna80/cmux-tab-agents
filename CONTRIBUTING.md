@@ -45,6 +45,32 @@ Full rationale, the Iron Law, and Red-Green-Refactor detail: [`skills/cmux-tab-a
 
 NEVER use `git commit --no-verify`, `HUSKY=0`, `--no-gpg-sign`, `-c core.hooksPath=/dev/null`, or any equivalent. If a hook fails, read the failure and fix the underlying issue. Reviewers scan commits for evidence of bypass.
 
+## Session persistence with crex (for long-running review cycles)
+
+For contributions that modify the 3-phase review cycle or tab-agent prompts, consider testing with **crex** (cmux-resurrect) to verify that session persistence works correctly:
+
+```bash
+brew install drolosoft/tap/crex
+```
+
+Add to `~/.claude/settings.json` to auto-save workspace on session end:
+
+```json
+{
+  "hooks": {
+    "Stop": [{
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "crex save $(date +%Y%m%d-%H%M%S) 2>/dev/null || true"
+      }]
+    }]
+  }
+}
+```
+
+See [`skills/cmux-tab-agents/references/session-persistence.md`](./skills/cmux-tab-agents/references/session-persistence.md) for full workflow documentation. This is optional for simple changes (test/spec/markdown) but recommended if you modify dispatcher logic, prompt structure, or tab-agent lifecycle.
+
 ## Optional: dogfood the skill
 
 For non-trivial changes, the maintainer runs the change through the plugin's own pipeline — implementer tab-agent, then spec-reviewer, then code-quality-reviewer. You don't need to do this yourself; a clean PR with a focused diff and tests is enough. If you developed your fix via the pipeline and want to mention that in the PR description, go for it.

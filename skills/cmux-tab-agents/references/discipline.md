@@ -378,6 +378,48 @@ Then idle. Your job is to report what you found or built, not what the planner w
 
 ---
 
+## Session Persistence with crex
+
+Tab-agents operate across potentially long-running review cycles where sessions may end unexpectedly (network issues, crashes, deliberate exits). **Session persistence via crex (cmux-resurrect) enables resumable workflows.**
+
+**Implementer responsibility:**
+- After completing work and dispatching reviewers, save your workspace state: `crex save "$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true`
+- This preserves all cmux tabs, panes, working directories, and in-progress state
+- If your session ends, reviewers can restore your environment and continue
+
+**Reviewer responsibility (spec and code):**
+- If you need to investigate the implementer's working environment (e.g., on ISSUES_FOUND), use `crex restore <timestamp>` to resume their saved workspace
+- Document any zombie tabs or orphaned processes you discover during review
+- This is informational; the implementer is responsible for cleanup
+
+**Why this matters:**
+- Review cycles can span multiple sessions or be interrupted
+- Crex snapshots preserve state on disk independently of the Claude process
+- Reviewers can trace through the implementer's environment if needed
+- Eliminates "zombie tabs" left behind by abruptly-exited agents
+
+**Installation:**
+```bash
+brew install drolosoft/tap/crex
+```
+
+Configure in `~/.claude/settings.json` to auto-save on session end:
+```json
+{
+  "hooks": {
+    "Stop": [{
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "crex save $(date +%Y%m%d-%H%M%S) 2>/dev/null || true"
+      }]
+    }]
+  }
+}
+```
+
+---
+
 ## Core Hard Rules (apply to all roles)
 
 - Stay inside `{{WORKTREE}}`. Never edit files in the parent repo.
