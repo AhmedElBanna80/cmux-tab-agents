@@ -4,6 +4,13 @@ A Claude Code plugin that turns the **subagent-driven-development** workflow int
 
 Instead of in-process `Agent({...})` subagents that vanish when they're done, this dispatcher spawns each subagent as a **real `claude --dangerously-skip-permissions` process running in a [cmux](https://cmux.com) tab**, inside its own dedicated git worktree per ticket. The planner stays in its own tab, fans out work to dozens of parallel tab-agents, and reads their results from on-disk YAML files.
 
+## Demo 
+ 
+
+https://github.com/user-attachments/assets/79b46ef7-c948-4051-8d81-4ace9126fa37
+
+
+
 ## Why this exists
 
 Upstream `superpowers:subagent-driven-development` is excellent but has three structural limits the cmux pattern dissolves:
