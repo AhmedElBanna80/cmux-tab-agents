@@ -100,6 +100,16 @@ worktree_base = "../worktrees"
 # Default branch type prefix (used when --type isn't passed on the cli).
 branch_type_default = "feat"
 
+# Where tab-agent surfaces spawn relative to the planner pane.
+# Values: "split" (default — sibling pane below planner, lazily created and
+# reused per workspace), "flat" (legacy — agents spawn as tabs in the planner's
+# pane), "custom" (use agents_pane_ref). Full docs: see #68.
+agents_pane_layout = "split"
+
+# Required only when agents_pane_layout = "custom". The cmux pane ref that
+# tab-agent surfaces should spawn into.
+# agents_pane_ref = "pane:..."
+
 # Override the auto-detected bootstrap. If set, this command is run instead of
 # the mise/pnpm/uv/etc probes. Run from the new worktree's root.
 setup_command = "make bootstrap"
