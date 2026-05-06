@@ -5,6 +5,13 @@ All notable changes to cmux-tab-agents will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.6.0...cmux-tab-agents-v0.7.0) (2026-05-06)
+
+
+### Features
+
+* hook-driven lifecycle for cmux-tab-agents ([#66](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/66)) ([e2ee6af](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/e2ee6af99d3f1fa2f2b06f191398dff8c3b7dcbd))
+
 ## [0.6.0](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.5.2...cmux-tab-agents-v0.6.0) (2026-05-06)
 
 
