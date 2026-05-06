@@ -140,6 +140,35 @@ with open(dst, "w", encoding="utf-8") as f:
 PY
 }
 
+# ensure_tab_alive_or_restore <worktree> <surface> — check if surface is alive,
+# restore via crex if dead. Returns 0 if surface is alive or successfully restored,
+# non-zero otherwise.
+ensure_tab_alive_or_restore() {
+  local worktree="$1" surface="$2"
+  local result_file="$worktree/.cmux-implementer-result.md"
+
+  # Check if surface is alive
+  if cmux --json identify --surface "$surface" >/dev/null 2>&1; then
+    return 0  # Surface is alive
+  fi
+
+  # Surface is dead, try to restore from crex_session
+  [[ -f "$result_file" ]] || { echo "Cannot restore: result file $result_file not found" >&2; return 1; }
+
+  # Extract crex_session from YAML frontmatter
+  local crex_session
+  crex_session=$(awk -F': *' '/^crex_session:/ {print $2; exit}' "$result_file")
+  [[ -n "$crex_session" ]] || { echo "Cannot restore: crex_session not found in $result_file" >&2; return 1; }
+
+  # Restore the session
+  if crex restore "$crex_session"; then
+    return 0
+  else
+    echo "Failed to restore crex session: $crex_session" >&2
+    return 1
+  fi
+}
+
 # read_toml_value <file> <key> — extract a TOML top-level key value.
 # Assumes flat structure: key = "value" or key = value (no nested tables, no multi-line).
 # Echoes the value (quotes stripped), or empty string if not found or file missing.
