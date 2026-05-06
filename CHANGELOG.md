@@ -5,6 +5,18 @@ All notable changes to cmux-tab-agents will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.5.2...cmux-tab-agents-v0.6.0) (2026-05-06)
+
+
+### Features
+
+* **#61:** integrate cleanup command into workflow ([#64](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/64)) ([9a82bd8](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/9a82bd810a55e6ba6c663f8c59b98d24b698922b))
+
+
+### Bug Fixes
+
+* **#60:** prevent nested worktrees on reviewer dispatch ([#63](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/63)) ([7b1a84d](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/7b1a84d5b66e9d46378a9322889088c5981a98aa))
+
 ## [0.5.2](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.5.1...cmux-tab-agents-v0.5.2) (2026-05-05)
 
 
