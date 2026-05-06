@@ -88,10 +88,30 @@ test_crex_save_timestamp_parseable() {
   local output
   output=$("$PROJECT_ROOT/crex-save.sh" 2>&1)
 
-  # Should be able to parse as a date
-  if ! date -j -f "%Y%m%d-%H%M%S" "$output" >/dev/null 2>&1; then
-    echo "FAIL: crex-save.sh timestamp not parseable by date command"
+  # Should match expected format and be parseable
+  # Format check: YYYYMMDD-HHMMSS (8 digits, dash, 6 digits)
+  if [[ ! "$output" =~ ^[0-9]{8}-[0-9]{6}$ ]]; then
+    echo "FAIL: crex-save.sh timestamp not in YYYYMMDD-HHMMSS format"
     echo "Timestamp: $output"
+    return 1
+  fi
+
+  # Validate components (year 2000-2099, month 01-12, day 01-31, hour 00-23, min/sec 00-59)
+  local year month day hour min sec
+  year="${output:0:4}"
+  month="${output:4:2}"
+  day="${output:6:2}"
+  hour="${output:9:2}"
+  min="${output:11:2}"
+  sec="${output:13:2}"
+
+  if ! [[ "$month" =~ ^(0[1-9]|1[0-2])$ ]] || \
+     ! [[ "$day" =~ ^(0[1-9]|[12][0-9]|3[01])$ ]] || \
+     ! [[ "$hour" =~ ^([01][0-9]|2[0-3])$ ]] || \
+     ! [[ "$min" =~ ^[0-5][0-9]$ ]] || \
+     ! [[ "$sec" =~ ^[0-5][0-9]$ ]]; then
+    echo "FAIL: crex-save.sh timestamp has invalid date components"
+    echo "Timestamp: $output (Y:$year M:$month D:$day h:$hour m:$min s:$sec)"
     return 1
   fi
 
