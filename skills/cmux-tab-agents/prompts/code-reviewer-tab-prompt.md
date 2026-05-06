@@ -47,6 +47,12 @@ Review for code quality. Read `git diff <base>..HEAD` and assess:
 - **Hook bypass** — Re-scan commits for `--no-verify` evidence, split commits, hook mods
 - **Verification** — Re-run tests, lint, type-check; don't trust pasted output
 
+### Preventing zombie tabs
+
+As the final reviewer in the 3-phase cycle, verify that no orphaned/zombie tabs are left behind from the implementer or spec-reviewer phases. If `ISSUES_FOUND`, the implementer will resume from the saved crex session. If `APPROVED`, cleanup is the planner's responsibility.
+
+If you notice stale or orphaned cmux tabs during your review, flag this as a concern in your result file and document the symptom so the implementer can investigate.
+
 Result file: `<WORKTREE>/.cmux-code-reviewer-result.md` with schema per discipline.md.
 
 Update cmux and push result:

@@ -47,6 +47,18 @@ The implementer may have written an optional verification artifact at `<WORKTREE
 5. Scan git log and commits for hook bypass evidence (`--no-verify`, split commits, etc.)
 6. Check the implementer's verification artifact (if present) for freshness, consistency, and all-passed status
 
+### Session restoration (crex) and zombie tab prevention
+
+If the implementer's session was saved via `crex save`, and you need to restore their workspace context or view their working state, use:
+
+```bash
+crex restore <timestamp>  # e.g., crex restore 20260506-143022
+```
+
+This is helpful when `ISSUES_FOUND` requires understanding the implementer's sandbox environment or previous state.
+
+**Zombie tab prevention:** As you review, note any orphaned or zombie tabs (tabs left idle from previous phases). Document these as concerns so the implementer or planner can clean them up. This prevents stale tabs from accumulating during the 3-phase cycle.
+
 Result file: `<WORKTREE>/.cmux-spec-reviewer-result.md` with schema per discipline.md.
 
 Update cmux and push result:

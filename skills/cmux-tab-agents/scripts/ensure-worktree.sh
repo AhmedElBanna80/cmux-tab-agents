@@ -135,6 +135,29 @@ fi
 
 mkdir -p "$(dirname "$WT")"
 
+# Check if a worktree already exists for this ticket (prevent nested worktrees)
+# This avoids creating nested structures when spec-reviewer/code-reviewer is dispatched
+# in the same TICKET directory after implementer has already created the worktree
+EXISTING_WT=""
+while IFS= read -r -u 3 line; do
+  # git worktree list format: /path/to/worktree branch [detached]
+  if [[ "$line" =~ ^([^ ]+)[[:space:]] ]]; then
+    existing_path="${BASH_REMATCH[1]}"
+    # Check if this worktree is for the same TICKET
+    if [[ "$existing_path" == *"/$TICKET/cmux-tab-agents" ]]; then
+      EXISTING_WT="$existing_path"
+      break
+    fi
+  fi
+done 3< <(git -C "$REPO" worktree list)
+
+if [[ -n "$EXISTING_WT" ]]; then
+  echo "Reusing existing worktree: $EXISTING_WT" >&2
+  WT="$EXISTING_WT"
+  echo "$WT"
+  exit 0
+fi
+
 # Fetch origin/main to ensure fresh base (not stale local main)
 git -C "$REPO" fetch origin main --quiet 2>/dev/null || true
 

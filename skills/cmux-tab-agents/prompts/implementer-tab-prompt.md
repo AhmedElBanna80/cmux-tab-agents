@@ -90,6 +90,23 @@ Replace `<WORKTREE>` with the value from the Task context section below.
 
 After your implementation is `DONE`, you are the **task lead** — you drive the review loop without planner involvement. Max iterations: `{{MAX_LOOP_ITERATIONS}}` (default 5).
 
+### Pre-dispatch check — ensure worktree exists
+
+Before dispatching reviewers, verify the worktree directory still exists. If it was deleted, recreate it from the current branch:
+
+```bash
+WORKTREE_PATH="/Users/banna/POC/worktrees/cmux-tab-agents/{{TICKET}}/cmux-tab-agents"
+if [ ! -d "$WORKTREE_PATH" ]; then
+  echo "[impl] WARNING: Worktree directory was deleted. Recreating from current branch..."
+  mkdir -p "$(dirname "$WORKTREE_PATH")"
+  git worktree add "$WORKTREE_PATH" --detach HEAD || {
+    echo "[impl] ERROR: Could not recreate worktree. Aborting spec-reviewer dispatch."
+    exit 1
+  }
+  cd "$WORKTREE_PATH" || exit 1
+fi
+```
+
 ### Step 1 — dispatch spec-reviewer
 
 ```bash
@@ -127,13 +144,31 @@ dispatch-code-reviewer.sh \
 - **ISSUES_FOUND** → fix issues (TDD), commit, then re-dispatch code-reviewer. Increment counter.
   - Same circuit-breaker rules as Step 2.
 
-### Step 5 — finish and report
+### Step 5 — save session state (crex)
+
+Before proceeding to final reporting, save your cmux workspace state for potential session restoration:
+
+```bash
+crex save "$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+```
+
+**Why:** If your session ends unexpectedly (crash, network issue, or deliberate exit), this allows the spec-reviewer or code-reviewer to resurrect the workspace and continue. The crex snapshot preserves tab layout, working directories, and incomplete state across session boundaries.
+
+**No error if crex is not installed** — the `|| true` ensures the workflow continues regardless.
+
+### Step 7 — finish and report
 
 When **both reviewers have APPROVED**:
 
-1. Run `{{SKILL_BASE}}/scripts/finish-task.sh {{FINISH_MODE}} <WORKTREE>`.
-2. Write `.cmux-task-result.md` (schema in `references/reporting-contract.md`).
-3. Push **one line** to planner:
+1. Save the session:
+
+```bash
+CREX_SESSION="$(scripts/crex-save.sh 2>/dev/null || echo '')"
+```
+
+2. Run `{{SKILL_BASE}}/scripts/finish-task.sh {{FINISH_MODE}} <WORKTREE>`.
+3. Write `.cmux-task-result.md` (schema in `references/reporting-contract.md`), include `crex_session: $CREX_SESSION` in the frontmatter.
+4. Push **one line** to planner:
 
 ```bash
 cmux send --surface "{{PLANNER_SURFACE}}" \
@@ -141,7 +176,7 @@ cmux send --surface "{{PLANNER_SURFACE}}" \
 cmux send-key --surface "{{PLANNER_SURFACE}}" enter
 ```
 
-4. Idle.
+5. Idle.
 
 ### Circuit-breaker (hard rule)
 

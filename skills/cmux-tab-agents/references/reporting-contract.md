@@ -26,6 +26,7 @@ phase: implementer
 status: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
 branch: feat/ALPM-1234-1/form-validation
 last_commit: abc1234...
+crex_session: 20260506-143022
 ---
 ## Summary
 <2-3 sentences>
@@ -42,6 +43,10 @@ last_commit: abc1234...
 ## Concerns / blockers / context needed
 <bullet list, or "none">
 ```
+
+### Implementer result — field reference
+
+- **`crex_session`** (optional): Session ID / timestamp from `crex save` when the implementer finishes. Format: `YYYYMMDD-HHMMSS`. Allows resuming the cmux workspace using `crex restore <timestamp>`. Empty if crex is not installed or save failed gracefully.
 
 ## Size limits
 
