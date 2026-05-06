@@ -435,3 +435,16 @@ Configure in `~/.claude/settings.json` to auto-save on session end:
 
 - Upstream `test-driven-development` and `verification-before-completion` discipline is verbatim from `superpowers @ 5.0.7`.
 - This discipline reference was introduced to shrink seed prompts and reduce per-task token cost.
+
+## Task Completion & Workspace Cleanup
+
+After the full 3-phase cycle completes, implementer should:
+1. Write `.cmux-task-result.md` with final status
+2. Optionally: save crex session before exit (Step 5 in prompt)
+3. Exit the tab
+
+Planner or automation can then:
+4. Verify task is DONE
+5. Run `done-cleanup.sh --ticket <TICKET>` to remove sessions/tabs/worktrees
+
+This keeps the cmux sidebar clean and removes stale session data.
