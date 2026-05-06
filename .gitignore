@@ -1,3 +1,4 @@
 node_modules/
 dist/
 .cmux-*
+.cmux-tab-prompt-*.md
