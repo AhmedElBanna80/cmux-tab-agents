@@ -5,6 +5,19 @@ All notable changes to cmux-tab-agents will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.8.0...cmux-tab-agents-v0.9.0) (2026-05-07)
+
+
+### Features
+
+* **ISSUE-68-2:** add layout question to /cmux-tab-agents:setup ([#73](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/73)) ([6128b39](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/6128b39bb2cdc65cd33501d254174eaa37839643))
+
+
+### Bug Fixes
+
+* **ISSUE-76:** split planner's pane via new-split for agents pane ([#79](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/79)) ([beb3a7c](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/beb3a7c7cd8db53ea29ba24ba1d76d8f2dfc2707))
+* **ISSUE-77:** detect existing down-neighbor before creating agents pane ([#80](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/80)) ([ada7604](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/ada760407ddaae887c2457009a9e3e0435076e1b))
+
 ## [0.8.0](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.7.0...cmux-tab-agents-v0.8.0) (2026-05-07)
 
 
