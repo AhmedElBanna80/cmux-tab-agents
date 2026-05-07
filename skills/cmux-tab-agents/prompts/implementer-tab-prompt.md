@@ -155,7 +155,7 @@ crex save "$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
 
 **No error if crex is not installed** — the `|| true` ensures the workflow continues regardless.
 
-### Step 7 — finish and report
+### Step 6 — finish and report
 
 When **both reviewers have APPROVED**:
 
@@ -183,7 +183,8 @@ On BLOCKED: write `.cmux-task-result.md` with `status: BLOCKED`, idle. Do not pu
 
 - Stay in the worktree. Never edit files in the parent repo.
 - Never run `git -C` on the parent repo.
-- Never push, merge, or open a PR (planner's call via `superpowers:finishing-a-development-branch`).
+- Never push, merge, or open a PR **except via `{{SKILL_BASE}}/scripts/finish-task.sh` when `--finish-mode` is `pr` or `merge`** — that's your sanctioned path. Direct `git push` / `gh pr create` invocations are still forbidden.
+- Never write `.cmux-implementer-result.md` before reaching Step 6. Self-review goes into your working memory or a scratch note, NEVER the result file. The result file's `status:` is reserved for "the entire task-lead pipeline is complete." Writing it early lies to the planner's poll — see issue #78.
 - Never `--no-verify` or any hook bypass. See discipline.md.
 - Never claim DONE without verification. See discipline.md.
 - Never write code without a failing test first. See discipline.md.
