@@ -368,9 +368,21 @@ PY
     exit 1
   fi
 
+  # Resolve which cmux pane the new surface should spawn into. Default
+  # ("split" layout) creates a sibling pane below the planner on first
+  # dispatch in this workspace and reuses it thereafter. See
+  # resolve-agents-pane.sh and references/configuration.md.
+  local AGENTS_PANE
+  if ! AGENTS_PANE=$("$SCRIPT_DIR/resolve-agents-pane.sh" \
+        --caller-pane "$CALLER_PANE" \
+        --workspace "$PLANNER_WS" 2>&1); then
+    echo "$0: resolve-agents-pane.sh failed: $AGENTS_PANE" >&2
+    exit 1
+  fi
+
   local SPAWN_JSON
-  if ! SPAWN_JSON=$(cmux --json new-surface --type terminal --pane "$CALLER_PANE" 2>/dev/null); then
-    echo "$0: cmux new-surface failed" >&2
+  if ! SPAWN_JSON=$(cmux --json new-surface --type terminal --pane "$AGENTS_PANE" 2>/dev/null); then
+    echo "$0: cmux new-surface failed (pane=$AGENTS_PANE)" >&2
     exit 1
   fi
 
