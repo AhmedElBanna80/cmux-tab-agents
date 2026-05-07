@@ -5,6 +5,13 @@ All notable changes to cmux-tab-agents will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.7.0...cmux-tab-agents-v0.8.0) (2026-05-07)
+
+
+### Features
+
+* **ISSUE-68-1:** pane resolver + dispatch wiring for layout split ([#69](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/69)) ([0ff2501](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/0ff25013e0ba4734bf4fc11faf9f62c9c3e190ac)), closes [#68](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/68)
+
 ## [0.7.0](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.6.0...cmux-tab-agents-v0.7.0) (2026-05-06)
 
 
