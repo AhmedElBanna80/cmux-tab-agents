@@ -5,6 +5,14 @@ All notable changes to cmux-tab-agents will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.9.0...cmux-tab-agents-v0.9.1) (2026-05-07)
+
+
+### Bug Fixes
+
+* **ISSUE-81:** short-circuit resolver when caller is the agents pane ([#84](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/84)) ([2cb14e1](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/2cb14e16ff5b28ee8bb4c507e7f9aa1fc0c07547)), closes [#81](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/81)
+* **ISSUE-82:** use absolute SKILL_BASE paths for dispatch scripts in prompts ([#86](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/86)) ([732d70d](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/732d70d6a749dfd79b5139ed58e757e282a2183f))
+
 ## [0.9.0](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.8.0...cmux-tab-agents-v0.9.0) (2026-05-07)
 
 
