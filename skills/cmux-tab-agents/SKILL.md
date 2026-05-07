@@ -142,6 +142,10 @@ Phases: `implementer | spec-reviewer | code-reviewer`. Returns the result file's
 
 Parse the `status:` field to drive next action. See `references/reporting-contract.md` for the full schema.
 
+## Where tab-agents appear visually
+
+By default, dispatched tab-agents spawn into a **sibling pane below the planner**, not into the planner's own tab strip. The pane is lazily created on first dispatch and reused for the rest of the workspace's lifetime, so all implementer, spec-reviewer, and code-reviewer tabs for every sub-task land in one shared agents pane. This keeps the planner workspace clean and groups related agents together. The behavior is controlled by `agents_pane_layout` (modes: `split` default, `flat` legacy, `custom`); see `references/configuration.md` for the full docs and how to revert if `split` misbehaves.
+
 ## How tab-agents talk to you
 
 Tab-agents talk to the planner through **two passive channels**: a result file that the planner polls, and lifecycle hooks that own the cmux side-effects (status pill, log, notify). There is no `cmux send` from a tab-agent into the planner's input box — the planner waits via `task-adapter.sh` (which wraps dispatch + poll), so terminal-state notifications never pollute the chat.
