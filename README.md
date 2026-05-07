@@ -160,6 +160,22 @@ Iterate on this plugin in-place — no marketplace re-install loop.
 - No CI on PRs — linting is local-only.
 - The `cmux <subcmd>` calls inside the dispatch scripts are not mocked.
 
+## Layout: where tab-agents appear
+
+By default, dispatched tab-agents spawn into a **sibling pane below the planner**, not into the planner's own tab strip:
+
+```
+┌───────────────────────────────────────┐
+│  PLANNER                              │
+│                                       │
+├───────────────────────────────────────┤
+│  [implementer] [spec-rev] [code-rev]  │  ← agents pane (auto-created)
+│                                       │
+└───────────────────────────────────────┘
+```
+
+The agents pane is created lazily on the first dispatch and reused for the rest of the cmux workspace's lifetime — every implementer, spec-reviewer, and code-reviewer tab for every sub-task lands together in this one pane. Configurable via `agents_pane_layout` in TOML (`split` default, `flat` legacy, `custom` for explicit pinning). See [`skills/cmux-tab-agents/references/configuration.md`](skills/cmux-tab-agents/references/configuration.md#layout-where-tab-agents-appear-visually) for modes and how to revert.
+
 ## How tab-agents report back
 
 Three out-of-band channels per phase:

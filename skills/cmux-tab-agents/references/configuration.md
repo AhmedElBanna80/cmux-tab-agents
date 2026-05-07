@@ -101,9 +101,7 @@ worktree_base = "../worktrees"
 branch_type_default = "feat"
 
 # Where tab-agent surfaces spawn relative to the planner pane.
-# Values: "split" (default — sibling pane below planner, lazily created and
-# reused per workspace), "flat" (legacy — agents spawn as tabs in the planner's
-# pane), "custom" (use agents_pane_ref). Full docs: see #68.
+# Values: "split" (default), "flat", "custom". Full docs: see "Layout" below.
 agents_pane_layout = "split"
 
 # Required only when agents_pane_layout = "custom". The cmux pane ref that
@@ -225,6 +223,48 @@ If `setup_command` is not set, `ensure-worktree.sh` probes the new worktree for 
 | `Cargo.toml`             | (skipped — auto-fetches)| —                                |
 
 Output goes to `<worktree>/.cmux-bootstrap.log`. If you don't want any of these, set `setup_command = "true"` (a no-op).
+
+## Layout: where tab-agents appear visually
+
+By default, dispatched tab-agents (implementer, spec-reviewer, code-reviewer) spawn into a **sibling pane below the planner**, separate from the planner's tab strip. This keeps the planner workspace clean and groups all related agents in one place. The behavior is controlled by `agents_pane_layout` in the per-repo or user-global TOML.
+
+### Modes
+
+**`split` (default)** — Tab-agents spawn into a sibling pane below the planner, lazily created on first dispatch and reused for the rest of the workspace's lifetime. Best for most workflows: the planner stays in its own pane, agents are visible together, and you can resize or close the agents pane independently. Pick this unless you have a specific reason not to.
+
+**`flat` (legacy)** — Tab-agents spawn as tabs **in the planner's pane**, mixed with the planner's own tabs. This is the pre-#68 behavior. Pick this if `split` doesn't render correctly in your cmux build, if you prefer the older flat tab strip, or if you're scripting against a layout that assumes everything is in one pane.
+
+**`custom`** — Tab-agents spawn into a specific pane that you select via `agents_pane_ref`. Use this when you want to pin agents to a particular pane (e.g., a dedicated side pane). Required: also set `agents_pane_ref = "pane:<id>"` in the same config block. If `agents_pane_ref` is missing or stale at dispatch time, the dispatcher falls back to `flat`.
+
+### Per-workspace state
+
+When `agents_pane_layout = "split"`, the resolved pane ref for each cmux workspace is cached at:
+
+```
+~/.claude/cmux-tab-agents/workspaces/<workspace_id>.json
+```
+
+This file is auto-managed by the dispatch scripts — you generally should not edit or delete it by hand. If the recorded pane has been closed manually, the next dispatch detects the stale ref and creates a fresh sibling pane. To force regeneration deliberately, delete the JSON for the workspace in question.
+
+### Override chain
+
+`agents_pane_layout` and `agents_pane_ref` follow the same precedence chain as the other config keys (first match wins):
+
+1. Per-repo TOML: `<repo>/.claude/cmux-tab-agents.toml`.
+2. User-global TOML: `~/.claude/cmux-tab-agents.toml`.
+3. Default: `split`.
+
+There is no CLI flag or env var for layout — it is config-only by design (layout is a per-environment preference, not a per-dispatch decision). Per-repo wins over user-global, so a repo that genuinely needs the legacy flat layout can pin it with `agents_pane_layout = "flat"` without affecting other repos.
+
+### Escape hatch — revert to flat
+
+If `split` misbehaves (pane doesn't appear, dispatch fails on pane creation, or the layout looks wrong), the fastest revert is:
+
+1. In your per-repo or user-global TOML, set `agents_pane_layout = "flat"`.
+2. Dispatch again — the change takes effect on the next dispatch.
+3. Optionally delete the cached state at `~/.claude/cmux-tab-agents/workspaces/<workspace_id>.json` so a future switch back to `split` starts from a clean pane.
+
+You can also set this in `~/.claude/cmux-tab-agents.toml` to make `flat` your personal default across every repo, while leaving repo-level configs untouched.
 
 ## Inspecting the resolved configuration
 
