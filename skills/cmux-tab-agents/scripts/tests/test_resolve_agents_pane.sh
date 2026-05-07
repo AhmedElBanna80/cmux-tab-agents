@@ -21,7 +21,8 @@ printf '=== resolve-agents-pane.sh tests ===\n\n'
 
 # Mock cmux:
 #   - Logs args to $CMUX_LOG.
-#   - On `list-panes`: cats $CMUX_PANES_FIXTURE if set.
+#   - On `--json list-panes`: cats $CMUX_PANES_JSON_FIXTURE if set, else empty.
+#   - On `list-panes` (plain text): cats $CMUX_PANES_FIXTURE if set.
 #   - On `--json new-split`: emits JSON with pane_ref=$CMUX_NEW_PANE_REF.
 MOCK_DIR=$(mktemp -d)
 trap 'rm -rf "$MOCK_DIR" "${TEST_HOMES[@]}"' EXIT
@@ -31,6 +32,14 @@ cat > "$MOCK_DIR/cmux" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$CMUX_LOG"
 case "$*" in
+  *--json*list-panes*)
+    if [[ -n "${CMUX_PANES_JSON_FIXTURE:-}" && -f "$CMUX_PANES_JSON_FIXTURE" ]]; then
+      cat "$CMUX_PANES_JSON_FIXTURE"
+    else
+      printf '{"panes":[]}\n'
+    fi
+    exit 0
+    ;;
   *list-panes*)
     if [[ -n "${CMUX_PANES_FIXTURE:-}" && -f "$CMUX_PANES_FIXTURE" ]]; then
       cat "$CMUX_PANES_FIXTURE"
@@ -59,11 +68,53 @@ new_home() {
 }
 
 reset_env() {
-  unset CMUX_PANES_FIXTURE CMUX_NEW_PANE_REF CMUX_NEW_SPLIT_FAIL
+  unset CMUX_PANES_FIXTURE CMUX_PANES_JSON_FIXTURE CMUX_NEW_PANE_REF CMUX_NEW_SPLIT_FAIL
   CMUX_LOG=$(mktemp)
   TEST_HOMES+=("$CMUX_LOG")
   export CMUX_LOG
   : > "$CMUX_LOG"
+}
+
+# Helper: write a JSON list-panes fixture with two panes (planner above, neighbor below).
+# Usage: write_panes_json_with_down_neighbor <out_file> <planner_ref> <neighbor_ref>
+# Geometry: planner at (504, 28, 1224x706), neighbor at (504, 734, 1224x706) — bottom edge meets top.
+write_panes_json_with_down_neighbor() {
+  local out="$1" planner="$2" neighbor="$3"
+  cat > "$out" <<JSON
+{
+  "panes": [
+    { "ref": "$planner",  "pixel_frame": { "x": 504, "y": 28,  "width": 1224, "height": 706 } },
+    { "ref": "$neighbor", "pixel_frame": { "x": 504, "y": 734, "width": 1224, "height": 706 } }
+  ]
+}
+JSON
+}
+
+# Helper: write a JSON list-panes fixture with the planner only (no down-neighbor).
+write_panes_json_solo() {
+  local out="$1" planner="$2"
+  cat > "$out" <<JSON
+{
+  "panes": [
+    { "ref": "$planner", "pixel_frame": { "x": 504, "y": 28, "width": 1224, "height": 706 } }
+  ]
+}
+JSON
+}
+
+# Helper: write a JSON list-panes fixture where the only other pane is to the side
+# (not below) — same y, different x — exercises the "no down-neighbor" path even
+# though there is more than one pane in the workspace.
+write_panes_json_side_neighbor() {
+  local out="$1" planner="$2" sibling="$3"
+  cat > "$out" <<JSON
+{
+  "panes": [
+    { "ref": "$planner",  "pixel_frame": { "x": 504,  "y": 28, "width": 1224, "height": 706 } },
+    { "ref": "$sibling",  "pixel_frame": { "x": 1730, "y": 28, "width": 1224, "height": 706 } }
+  ]
+}
+JSON
 }
 
 # T1: Default config (no toml) → split mode → no prior state → calls new-split
@@ -255,6 +306,135 @@ else
   else
     fail "split missing --caller-surface: exit OK but stderr lacks diagnostic; err=$(cat "$err_file")"
   fi
+fi
+
+# T11: Split mode — down-neighbor exists, no state file → reuse the down-neighbor,
+# do NOT call cmux new-split, persist neighbor ref to state file so subsequent
+# runs skip the tree walk.
+reset_env
+HOME=$(new_home)
+export HOME
+panes_json=$(mktemp)
+TEST_HOMES+=("$panes_json")
+write_panes_json_with_down_neighbor "$panes_json" "pane:planner" "pane:below"
+export CMUX_PANES_JSON_FIXTURE="$panes_json"
+out=$("$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:21 2>/tmp/.rap-err.t11)
+state="$HOME/.claude/cmux-tab-agents/workspaces/workspace:21.json"
+if [[ "$out" == "pane:below" ]] \
+   && ! grep -q -- 'new-split' "$CMUX_LOG" \
+   && [[ -f "$state" ]] \
+   && jq -e '.agents_pane_ref == "pane:below"' "$state" >/dev/null 2>&1; then
+  pass "split + down-neighbor exists, no state: reuses neighbor, no new-split, persists state"
+else
+  fail "split + down-neighbor exists, no state: out='$out' err=$(cat /tmp/.rap-err.t11) log=$(cat "$CMUX_LOG") state=$(cat "$state" 2>/dev/null)"
+fi
+
+# T12: Split mode — down-neighbor exists AND state file points at a different
+# pane → cmux geometry wins (the down-neighbor is the ground truth), state is
+# updated to match.
+reset_env
+HOME=$(new_home)
+export HOME
+mkdir -p "$HOME/.claude/cmux-tab-agents/workspaces"
+state="$HOME/.claude/cmux-tab-agents/workspaces/workspace:22.json"
+printf '{"agents_pane_ref":"pane:stale-cache","created_at":"2026-01-01T00:00:00Z"}\n' > "$state"
+panes_json=$(mktemp)
+TEST_HOMES+=("$panes_json")
+write_panes_json_with_down_neighbor "$panes_json" "pane:planner" "pane:below"
+export CMUX_PANES_JSON_FIXTURE="$panes_json"
+# Plain-text list-panes also includes the stale ref so we know the resolver does
+# NOT just defer to the state cache when geometry disagrees.
+panes=$(mktemp)
+TEST_HOMES+=("$panes")
+printf 'pane:planner\npane:below\npane:stale-cache\n' > "$panes"
+export CMUX_PANES_FIXTURE="$panes"
+out=$("$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:22 2>/tmp/.rap-err.t12)
+if [[ "$out" == "pane:below" ]] \
+   && ! grep -q -- 'new-split' "$CMUX_LOG" \
+   && jq -e '.agents_pane_ref == "pane:below"' "$state" >/dev/null 2>&1; then
+  pass "split + down-neighbor exists, state points elsewhere: geometry wins, state rewritten"
+else
+  fail "split + down-neighbor exists, state mismatch: out='$out' err=$(cat /tmp/.rap-err.t12) log=$(cat "$CMUX_LOG") state=$(cat "$state" 2>/dev/null)"
+fi
+
+# T13: Split mode — no down-neighbor (planner sits at bottom of vertical split),
+# state file points at a live sibling pane (e.g. created earlier sideways) →
+# resolver trusts state file, echoes that ref, no new-split.
+reset_env
+HOME=$(new_home)
+export HOME
+mkdir -p "$HOME/.claude/cmux-tab-agents/workspaces"
+state="$HOME/.claude/cmux-tab-agents/workspaces/workspace:23.json"
+printf '{"agents_pane_ref":"pane:sideways","created_at":"2026-01-01T00:00:00Z"}\n' > "$state"
+panes_json=$(mktemp)
+TEST_HOMES+=("$panes_json")
+write_panes_json_side_neighbor "$panes_json" "pane:planner" "pane:sideways"
+export CMUX_PANES_JSON_FIXTURE="$panes_json"
+panes=$(mktemp)
+TEST_HOMES+=("$panes")
+printf 'pane:planner\npane:sideways\n' > "$panes"
+export CMUX_PANES_FIXTURE="$panes"
+out=$("$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:23 2>/tmp/.rap-err.t13)
+if [[ "$out" == "pane:sideways" ]] \
+   && ! grep -q -- 'new-split' "$CMUX_LOG"; then
+  pass "split + no down-neighbor + live state: vertical-split edge case, reuse state ref"
+else
+  fail "split + no down-neighbor + live state: out='$out' err=$(cat /tmp/.rap-err.t13) log=$(cat "$CMUX_LOG")"
+fi
+
+# T14: Split mode — no down-neighbor AND state file points at a dead pane
+# (not in list-panes) → recreate via new-split, persist new ref.
+reset_env
+HOME=$(new_home)
+export HOME
+mkdir -p "$HOME/.claude/cmux-tab-agents/workspaces"
+state="$HOME/.claude/cmux-tab-agents/workspaces/workspace:24.json"
+printf '{"agents_pane_ref":"pane:dead","created_at":"2026-01-01T00:00:00Z"}\n' > "$state"
+panes_json=$(mktemp)
+TEST_HOMES+=("$panes_json")
+write_panes_json_solo "$panes_json" "pane:planner"
+export CMUX_PANES_JSON_FIXTURE="$panes_json"
+panes=$(mktemp)
+TEST_HOMES+=("$panes")
+printf 'pane:planner\n' > "$panes"
+export CMUX_PANES_FIXTURE="$panes"
+export CMUX_NEW_PANE_REF="pane:created-24"
+out=$("$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:24 2>/tmp/.rap-err.t14)
+if [[ "$out" == "pane:created-24" ]] \
+   && grep -q -- 'new-split' "$CMUX_LOG" \
+   && jq -e '.agents_pane_ref == "pane:created-24"' "$state" >/dev/null 2>&1; then
+  pass "split + no down-neighbor + dead state: recreates via new-split, overwrites state"
+else
+  fail "split + no down-neighbor + dead state: out='$out' err=$(cat /tmp/.rap-err.t14) log=$(cat "$CMUX_LOG") state=$(cat "$state" 2>/dev/null)"
+fi
+
+# T15: Split mode — down-neighbor candidate has matching y but no horizontal
+# overlap (e.g. a pane way to the side that happens to share a y coordinate
+# from a multi-row layout) → it must NOT be picked. With no other candidates
+# and no state, we fall through to new-split.
+reset_env
+HOME=$(new_home)
+export HOME
+panes_json=$(mktemp)
+TEST_HOMES+=("$panes_json")
+cat > "$panes_json" <<'JSON'
+{
+  "panes": [
+    { "ref": "pane:planner",     "pixel_frame": { "x": 504,  "y": 28,  "width": 1224, "height": 706 } },
+    { "ref": "pane:far-corner",  "pixel_frame": { "x": 5000, "y": 734, "width": 1224, "height": 706 } }
+  ]
+}
+JSON
+export CMUX_PANES_JSON_FIXTURE="$panes_json"
+export CMUX_NEW_PANE_REF="pane:created-25"
+out=$("$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:25 2>/tmp/.rap-err.t15)
+state="$HOME/.claude/cmux-tab-agents/workspaces/workspace:25.json"
+if [[ "$out" == "pane:created-25" ]] \
+   && grep -q -- 'new-split' "$CMUX_LOG" \
+   && jq -e '.agents_pane_ref == "pane:created-25"' "$state" >/dev/null 2>&1; then
+  pass "split + matching y but no horizontal overlap: rejected, falls through to new-split"
+else
+  fail "split + matching y but no horizontal overlap: out='$out' err=$(cat /tmp/.rap-err.t15) log=$(cat "$CMUX_LOG") state=$(cat "$state" 2>/dev/null)"
 fi
 
 printf '\n=== Results: %d passed, %d failed ===\n' "$PASS" "$FAIL"

@@ -8,11 +8,15 @@
 # order (first match wins): per-repo `<repo>/.claude/cmux-tab-agents.toml`,
 # then user-global `~/.claude/cmux-tab-agents.toml`. Default: "split".
 #
-#   split  (default)  Lazily create one sibling "agents" pane below the
-#                     planner pane on first dispatch in a workspace, persist
-#                     its ref to ~/.claude/cmux-tab-agents/workspaces/<id>.json,
-#                     and reuse it on subsequent dispatches. If the saved ref
-#                     is no longer present in `cmux list-panes`, recreate.
+#   split  (default)  Pick the pane directly below the planner if cmux
+#                     geometry shows one (covers manual splits and TOCTOU
+#                     races where another resolver already created the pane).
+#                     Otherwise reuse the cached ref from
+#                     ~/.claude/cmux-tab-agents/workspaces/<id>.json if it is
+#                     still present in `cmux list-panes` (vertical-split edge
+#                     case where the agents pane was created sideways).
+#                     Otherwise lazily create one by splitting the planner's
+#                     surface downward and persist the new ref.
 #   flat              Echo --caller-pane verbatim. No state, no cmux calls.
 #   custom            Use the configured `agents_pane_ref`. Required; verified
 #                     against `cmux list-panes`.
@@ -98,6 +102,59 @@ esac
 STATE_DIR="$HOME/.claude/cmux-tab-agents/workspaces"
 STATE_FILE="$STATE_DIR/${WORKSPACE}.json"
 
+# persist_state — atomic write of agents_pane_ref to STATE_FILE.
+persist_state() {
+  local ref="$1" tmp now
+  mkdir -p "$STATE_DIR"
+  tmp="${STATE_FILE}.tmp.$$"
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  jq -n --arg ref "$ref" --arg ts "$now" \
+    '{agents_pane_ref: $ref, created_at: $ts}' > "$tmp"
+  mv "$tmp" "$STATE_FILE"
+}
+
+# find_down_neighbor — echo the ref of the pane directly below CALLER_PANE in
+# WORKSPACE (or empty if none). Cmux exposes pane geometry via
+# `cmux --json list-panes --workspace`; the tree command does not include
+# pixel_frame and split-direction metadata isn't surfaced anywhere else, so
+# geometry is the only signal available. A pane is the down-neighbor when its
+# top edge meets the caller's bottom edge (within a small pixel tolerance, to
+# absorb fractional widths) AND the two panes have horizontal overlap.
+find_down_neighbor() {
+  local panes_json
+  panes_json=$(cmux --json list-panes --workspace "$WORKSPACE" 2>/dev/null) || return 0
+  [[ -n "$panes_json" ]] || return 0
+  printf '%s' "$panes_json" | jq -r --arg caller "$CALLER_PANE" '
+    (.panes // []) as $panes
+    | ($panes[] | select(.ref == $caller) | .pixel_frame) as $c
+    | if $c == null then empty
+      else
+        $panes[]
+        | select(.ref != $caller)
+        | select(.pixel_frame != null)
+        | . as $p
+        | ($c.y + $c.height) as $caller_bottom
+        | ($c.x + $c.width)  as $caller_right
+        | ($p.pixel_frame.x + $p.pixel_frame.width) as $p_right
+        | select(($p.pixel_frame.y - $caller_bottom) | fabs < 5)
+        | select($p.pixel_frame.x < $caller_right and $p_right > $c.x)
+        | .ref
+      end
+  ' 2>/dev/null | head -n1
+}
+
+# Step 1: cmux geometry is authoritative — if a usable down-neighbor exists,
+# reuse it and refresh the cache so subsequent runs skip this query.
+DOWN_NEIGHBOR="$(find_down_neighbor)"
+if [[ -n "$DOWN_NEIGHBOR" ]]; then
+  persist_state "$DOWN_NEIGHBOR"
+  printf '%s\n' "$DOWN_NEIGHBOR"
+  exit 0
+fi
+
+# Step 2: no down-neighbor (e.g. planner sits at the bottom of a vertical split,
+# so its agents pane was created sideways earlier). Trust the state file if
+# it points at a pane that still exists.
 if [[ -f "$STATE_FILE" ]]; then
   EXISTING_REF="$(jq -r '.agents_pane_ref // empty' "$STATE_FILE" 2>/dev/null || true)"
   if [[ -n "$EXISTING_REF" ]]; then
@@ -127,12 +184,6 @@ if [[ -z "$NEW_REF" ]]; then
   exit 1
 fi
 
-# Atomic state write.
-mkdir -p "$STATE_DIR"
-TMP="${STATE_FILE}.tmp.$$"
-NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-jq -n --arg ref "$NEW_REF" --arg ts "$NOW" \
-  '{agents_pane_ref: $ref, created_at: $ts}' > "$TMP"
-mv "$TMP" "$STATE_FILE"
+persist_state "$NEW_REF"
 
 printf '%s\n' "$NEW_REF"
