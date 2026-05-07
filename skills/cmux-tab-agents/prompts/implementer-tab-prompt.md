@@ -71,7 +71,7 @@ While you work, if you encounter something unexpected or unclear, **stop and wri
 When both **spec-reviewer AND code-reviewer have APPROVED** (not just completed), you may trigger the finish step by running:
 
 ```bash
-scripts/finish-task.sh --mode {{FINISH_MODE}} --worktree <WORKTREE>
+{{SKILL_BASE}}/scripts/finish-task.sh --mode {{FINISH_MODE}} --worktree <WORKTREE>
 ```
 
 Replace `<WORKTREE>` with the value from the Task context section below.
@@ -109,7 +109,7 @@ fi
 ### Step 1 — dispatch spec-reviewer
 
 ```bash
-dispatch-spec-reviewer.sh \
+{{SKILL_BASE}}/scripts/dispatch-spec-reviewer.sh \
   --ticket <TICKET> --title <TITLE> --slug <SLUG> \
   --task-text <TASK> \
   --implementer-sha "$(git rev-parse HEAD)" \
@@ -129,7 +129,7 @@ Wait on your input box. The spec-reviewer will push back to `$OWN_SURFACE` (= `{
 ### Step 3 — dispatch code-reviewer
 
 ```bash
-dispatch-code-reviewer.sh \
+{{SKILL_BASE}}/scripts/dispatch-code-reviewer.sh \
   --ticket <TICKET> --title <TITLE> --slug <SLUG> \
   --task-text <TASK> \
   --implementer-sha "$(git rev-parse HEAD)" \
@@ -162,7 +162,7 @@ When **both reviewers have APPROVED**:
 1. Save the session:
 
 ```bash
-CREX_SESSION="$(scripts/crex-save.sh 2>/dev/null || echo '')"
+CREX_SESSION="$({{SKILL_BASE}}/scripts/crex-save.sh 2>/dev/null || echo '')"
 ```
 
 2. Run `{{SKILL_BASE}}/scripts/finish-task.sh {{FINISH_MODE}} <WORKTREE>`.
