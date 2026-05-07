@@ -437,5 +437,54 @@ else
   fail "split + matching y but no horizontal overlap: out='$out' err=$(cat /tmp/.rap-err.t15) log=$(cat "$CMUX_LOG") state=$(cat "$state" 2>/dev/null)"
 fi
 
+# T16: Recursive dispatch — caller IS the persisted agents pane (e.g. implementer
+# dispatching its reviewers from inside the agents pane). Resolver must
+# short-circuit and return the same ref, WITHOUT consulting cmux geometry
+# (no list-panes, no new-split). This prevents a second agents pane from being
+# created next to the existing one when geometry probes race or coincidentally
+# match unrelated panes.
+reset_env
+HOME=$(new_home)
+export HOME
+mkdir -p "$HOME/.claude/cmux-tab-agents/workspaces"
+state="$HOME/.claude/cmux-tab-agents/workspaces/workspace:3.json"
+printf '{"agents_pane_ref":"pane:27","created_at":"2026-01-01T00:00:00Z"}\n' > "$state"
+out=$("$HELPER" --caller-pane pane:27 --caller-surface surface:99 --workspace workspace:3 2>/tmp/.rap-err.t16)
+if [[ "$out" == "pane:27" ]] \
+   && ! grep -q -- 'new-split' "$CMUX_LOG" \
+   && ! grep -q -- 'list-panes' "$CMUX_LOG"; then
+  pass "split + caller is persisted agents pane: short-circuit, no cmux probes"
+else
+  fail "split + caller is persisted agents pane: out='$out' err=$(cat /tmp/.rap-err.t16) log=$(cat "$CMUX_LOG")"
+fi
+
+# T17: Top-level dispatch unaffected (regression) — state file present with
+# pane:27, but the caller is a different pane (the planner). Resolver must NOT
+# short-circuit; it should fall through to the existing find_down_neighbor +
+# state-file logic. With no down-neighbor and pane:27 alive in list-panes, the
+# state-file fallback wins.
+reset_env
+HOME=$(new_home)
+export HOME
+mkdir -p "$HOME/.claude/cmux-tab-agents/workspaces"
+state="$HOME/.claude/cmux-tab-agents/workspaces/workspace:3.json"
+printf '{"agents_pane_ref":"pane:27","created_at":"2026-01-01T00:00:00Z"}\n' > "$state"
+panes_json=$(mktemp)
+TEST_HOMES+=("$panes_json")
+write_panes_json_solo "$panes_json" "pane:5"
+export CMUX_PANES_JSON_FIXTURE="$panes_json"
+panes=$(mktemp)
+TEST_HOMES+=("$panes")
+printf 'pane:5\npane:27\n' > "$panes"
+export CMUX_PANES_FIXTURE="$panes"
+out=$("$HELPER" --caller-pane pane:5 --caller-surface surface:25 --workspace workspace:3 2>/tmp/.rap-err.t17)
+if [[ "$out" == "pane:27" ]] \
+   && ! grep -q -- 'new-split' "$CMUX_LOG" \
+   && grep -q -- 'list-panes' "$CMUX_LOG"; then
+  pass "split + caller is NOT persisted agents pane: existing behavior preserved"
+else
+  fail "split + caller is NOT persisted agents pane: out='$out' err=$(cat /tmp/.rap-err.t17) log=$(cat "$CMUX_LOG")"
+fi
+
 printf '\n=== Results: %d passed, %d failed ===\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]
