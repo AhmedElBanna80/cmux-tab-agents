@@ -375,6 +375,7 @@ PY
   local AGENTS_PANE
   if ! AGENTS_PANE=$("$SCRIPT_DIR/resolve-agents-pane.sh" \
         --caller-pane "$CALLER_PANE" \
+        --caller-surface "$CALLER_SURFACE" \
         --workspace "$PLANNER_WS" 2>&1); then
     echo "$0: resolve-agents-pane.sh failed: $AGENTS_PANE" >&2
     exit 1

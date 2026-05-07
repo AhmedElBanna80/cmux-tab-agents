@@ -18,7 +18,7 @@
 #                     against `cmux list-panes`.
 #
 # Usage:
-#   resolve-agents-pane.sh --caller-pane <ref> --workspace <id>
+#   resolve-agents-pane.sh --caller-pane <ref> --caller-surface <ref> --workspace <id>
 
 set -euo pipefail
 
@@ -29,18 +29,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
   cat >&2 <<'EOF'
-Usage: resolve-agents-pane.sh --caller-pane <ref> --workspace <id>
+Usage: resolve-agents-pane.sh --caller-pane <ref> --caller-surface <ref> --workspace <id>
 EOF
   exit 1
 }
 
 CALLER_PANE=""
+CALLER_SURFACE=""
 WORKSPACE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --caller-pane) CALLER_PANE="$2"; shift 2 ;;
-    --workspace)   WORKSPACE="$2";   shift 2 ;;
-    -h|--help)     usage ;;
+    --caller-pane)    CALLER_PANE="$2";    shift 2 ;;
+    --caller-surface) CALLER_SURFACE="$2"; shift 2 ;;
+    --workspace)      WORKSPACE="$2";      shift 2 ;;
+    -h|--help)        usage ;;
     *) echo "resolve-agents-pane: unknown arg '$1'" >&2; usage ;;
   esac
 done
@@ -84,7 +86,7 @@ case "$LAYOUT" in
     exit 0
     ;;
   split)
-    : # fall through
+    [[ -n "$CALLER_SURFACE" ]] || { echo "resolve-agents-pane: --caller-surface required for split layout (anchors the new pane on the planner's surface)" >&2; exit 1; }
     ;;
   *)
     echo "resolve-agents-pane: unknown agents_pane_layout '$LAYOUT' (expected: split, flat, custom)" >&2
@@ -107,20 +109,21 @@ if [[ -f "$STATE_FILE" ]]; then
   fi
 fi
 
-# Create a new agents pane below the planner.
+# Create a new agents pane by splitting the planner's own surface downward.
+# Using `cmux new-split --surface` (vs `cmux new-pane --workspace`) anchors
+# the new pane to the caller's specific surface, so unrelated panes in the
+# workspace are left untouched.
 SPAWN_JSON=""
-if ! SPAWN_JSON=$(cmux --json new-pane \
-                   --type terminal \
-                   --direction down \
-                   --workspace "$WORKSPACE" \
+if ! SPAWN_JSON=$(cmux --json new-split down \
+                   --surface "$CALLER_SURFACE" \
                    --focus false 2>/dev/null); then
-  echo "resolve-agents-pane: cmux new-pane failed for workspace '$WORKSPACE'" >&2
+  echo "resolve-agents-pane: cmux new-split failed for surface '$CALLER_SURFACE'" >&2
   exit 1
 fi
 
 NEW_REF="$(printf '%s' "$SPAWN_JSON" | jq -r '.pane_ref // .pane.ref // empty' 2>/dev/null)"
 if [[ -z "$NEW_REF" ]]; then
-  echo "resolve-agents-pane: could not parse pane_ref from cmux new-pane output: $SPAWN_JSON" >&2
+  echo "resolve-agents-pane: could not parse pane_ref from cmux new-split output: $SPAWN_JSON" >&2
   exit 1
 fi
 
