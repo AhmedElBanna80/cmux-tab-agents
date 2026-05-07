@@ -5,6 +5,13 @@ All notable changes to cmux-tab-agents will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.9.1...cmux-tab-agents-v0.9.2) (2026-05-07)
+
+
+### Bug Fixes
+
+* **ISSUE-78:** tighten implementer prompt against Step 7 bypass ([#91](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/91)) ([533116a](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/533116aef9a37d7b3dac804d4708d7d0f0ecef53))
+
 ## [0.9.1](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.9.0...cmux-tab-agents-v0.9.1) (2026-05-07)
 
 
