@@ -168,9 +168,28 @@ Tab-agents talk to the planner through **two passive channels**: a result file t
   --ticket ALPM-1234-1 --title "wire validation" --slug form-validation \
   --task-text "$(cat tasks/ALPM-1234-1.md)"
 ```
-Prints the new tab's surface ref to stderr and the full result file body to stdout. For parallel fan-out, run multiple adapters via `Bash run_in_background=true` + `Monitor`.
+Prints the new tab's surface ref to stderr and the full result file body to stdout. For parallel fan-out, run multiple adapters via `Bash run_in_background=true` — see "Don't double-poll — task-adapter already blocks" below for how to wait on them correctly.
 
 **`--planner-surface` is deprecated:** it is now a no-op (the push channel was removed). Kept for one release for backward compatibility; passing any value is silently ignored. `task-adapter.sh` forces it to `""` regardless.
+
+### Don't double-poll — task-adapter already blocks
+
+`task-adapter.sh` polls the result file internally. When you run it via
+`Bash run_in_background=true`, the harness notifies you when the shell
+exits — you'll have the full result body in the captured stdout.
+
+**Do NOT** add a parallel `Monitor` watching the same result file. That
+double-polls and, if the Monitor's predicate doesn't match what the
+adapter writes, hangs the planner.
+
+Use `Monitor` only to wait for a SHELL ID to exit (not a file path):
+
+    Monitor(shellId="<adapter-shell-id>", until="<exit>")
+
+For "fan out N implementers" patterns: fire N background `task-adapter.sh`
+calls, get N shell IDs, then either let the harness notifications come in
+naturally, or call `Monitor` once per shell ID. Never monitor the result
+file directly while task-adapter is also polling it.
 
 ### Surface refs in your reports
 
