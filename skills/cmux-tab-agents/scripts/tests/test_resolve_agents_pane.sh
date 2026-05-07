@@ -22,7 +22,7 @@ printf '=== resolve-agents-pane.sh tests ===\n\n'
 # Mock cmux:
 #   - Logs args to $CMUX_LOG.
 #   - On `list-panes`: cats $CMUX_PANES_FIXTURE if set.
-#   - On `--json new-pane`: emits JSON with pane_ref=$CMUX_NEW_PANE_REF.
+#   - On `--json new-split`: emits JSON with pane_ref=$CMUX_NEW_PANE_REF.
 MOCK_DIR=$(mktemp -d)
 trap 'rm -rf "$MOCK_DIR" "${TEST_HOMES[@]}"' EXIT
 TEST_HOMES=()
@@ -37,9 +37,9 @@ case "$*" in
     fi
     exit 0
     ;;
-  *new-pane*)
-    if [[ "${CMUX_NEW_PANE_FAIL:-0}" == "1" ]]; then
-      echo "mock cmux: new-pane forced failure" >&2
+  *new-split*)
+    if [[ "${CMUX_NEW_SPLIT_FAIL:-0}" == "1" ]]; then
+      echo "mock cmux: new-split forced failure" >&2
       exit 1
     fi
     printf '{"pane_ref":"%s"}\n' "${CMUX_NEW_PANE_REF:-pane:new-1}"
@@ -59,33 +59,33 @@ new_home() {
 }
 
 reset_env() {
-  unset CMUX_PANES_FIXTURE CMUX_NEW_PANE_REF CMUX_NEW_PANE_FAIL
+  unset CMUX_PANES_FIXTURE CMUX_NEW_PANE_REF CMUX_NEW_SPLIT_FAIL
   CMUX_LOG=$(mktemp)
   TEST_HOMES+=("$CMUX_LOG")
   export CMUX_LOG
   : > "$CMUX_LOG"
 }
 
-# T1: Default config (no toml) → split mode → no prior state → calls new-pane,
-# persists state, echoes new ref.
+# T1: Default config (no toml) → split mode → no prior state → calls new-split
+# anchored on the caller surface, persists state, echoes new ref.
 reset_env
 HOME=$(new_home)
 export HOME
 export CMUX_NEW_PANE_REF="pane:created-1"
-out=$("$HELPER" --caller-pane pane:planner --workspace workspace:7 2>/tmp/.rap-err.t1)
+out=$("$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:7 2>/tmp/.rap-err.t1)
 state="$HOME/.claude/cmux-tab-agents/workspaces/workspace:7.json"
 if [[ "$out" == "pane:created-1" ]] \
-   && grep -q -- '--json new-pane' "$CMUX_LOG" \
-   && grep -q -- '--direction down' "$CMUX_LOG" \
-   && grep -q -- '--workspace workspace:7' "$CMUX_LOG" \
+   && grep -q -- '--json new-split down' "$CMUX_LOG" \
+   && grep -q -- '--surface surface:planner' "$CMUX_LOG" \
+   && grep -q -- '--focus false' "$CMUX_LOG" \
    && [[ -f "$state" ]] \
    && jq -e '.agents_pane_ref == "pane:created-1"' "$state" >/dev/null 2>&1; then
-  pass "default split: creates pane via cmux new-pane and persists state"
+  pass "default split: creates pane via cmux new-split anchored on caller surface and persists state"
 else
   fail "default split: out='$out' err=$(cat /tmp/.rap-err.t1) log=$(cat "$CMUX_LOG") state=$(cat "$state" 2>/dev/null)"
 fi
 
-# T2: Split mode + prior state with valid ref → echoes existing ref, no new-pane call.
+# T2: Split mode + prior state with valid ref → echoes existing ref, no new-split call.
 reset_env
 HOME=$(new_home)
 export HOME
@@ -96,10 +96,10 @@ panes=$(mktemp)
 TEST_HOMES+=("$panes")
 printf 'pane:existing\npane:other\n' > "$panes"
 export CMUX_PANES_FIXTURE="$panes"
-out=$("$HELPER" --caller-pane pane:planner --workspace workspace:8 2>/tmp/.rap-err.t2)
+out=$("$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:8 2>/tmp/.rap-err.t2)
 if [[ "$out" == "pane:existing" ]] \
-   && ! grep -q -- 'new-pane' "$CMUX_LOG"; then
-  pass "split + valid prior state: echoes existing ref, no new-pane call"
+   && ! grep -q -- 'new-split' "$CMUX_LOG"; then
+  pass "split + valid prior state: echoes existing ref, no new-split call"
 else
   fail "split + valid prior state: out='$out' err=$(cat /tmp/.rap-err.t2) log=$(cat "$CMUX_LOG")"
 fi
@@ -116,17 +116,18 @@ TEST_HOMES+=("$panes")
 printf 'pane:planner\npane:other\n' > "$panes"
 export CMUX_PANES_FIXTURE="$panes"
 export CMUX_NEW_PANE_REF="pane:fresh-9"
-out=$("$HELPER" --caller-pane pane:planner --workspace workspace:9 2>/tmp/.rap-err.t3)
+out=$("$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:9 2>/tmp/.rap-err.t3)
 if [[ "$out" == "pane:fresh-9" ]] \
-   && grep -q -- 'new-pane' "$CMUX_LOG" \
+   && grep -q -- 'new-split' "$CMUX_LOG" \
    && jq -e '.agents_pane_ref == "pane:fresh-9"' "$state" >/dev/null 2>&1; then
-  pass "split + stale state: recreates pane and overwrites state"
+  pass "split + stale state: recreates pane via new-split and overwrites state"
 else
   fail "split + stale state: out='$out' err=$(cat /tmp/.rap-err.t3) log=$(cat "$CMUX_LOG") state=$(cat "$state" 2>/dev/null)"
 fi
 
-# T4: Flat mode → echoes caller pane verbatim, no cmux new-pane call,
-# no state file written.
+# T4: Flat mode → echoes caller pane verbatim, no cmux new-split call,
+# no state file written. --caller-surface omitted on purpose: flat mode
+# does not create panes and must not require it.
 reset_env
 HOME=$(new_home)
 export HOME
@@ -135,7 +136,7 @@ printf 'agents_pane_layout = "flat"\n' > "$HOME/.claude/cmux-tab-agents.toml"
 out=$("$HELPER" --caller-pane pane:planner --workspace workspace:10 2>/tmp/.rap-err.t4)
 state="$HOME/.claude/cmux-tab-agents/workspaces/workspace:10.json"
 if [[ "$out" == "pane:planner" ]] \
-   && ! grep -q -- 'new-pane' "$CMUX_LOG" \
+   && ! grep -q -- 'new-split' "$CMUX_LOG" \
    && [[ ! -f "$state" ]]; then
   pass "flat mode: echoes caller pane, no side effects"
 else
@@ -157,7 +158,7 @@ printf 'pane:user-managed\npane:planner\n' > "$panes"
 export CMUX_PANES_FIXTURE="$panes"
 out=$("$HELPER" --caller-pane pane:planner --workspace workspace:11 2>/tmp/.rap-err.t5)
 if [[ "$out" == "pane:user-managed" ]] \
-   && ! grep -q -- 'new-pane' "$CMUX_LOG"; then
+   && ! grep -q -- 'new-split' "$CMUX_LOG"; then
   pass "custom mode + valid ref: echoes configured ref"
 else
   fail "custom mode + valid ref: out='$out' err=$(cat /tmp/.rap-err.t5) log=$(cat "$CMUX_LOG")"
@@ -213,7 +214,7 @@ reset_env
 HOME=$(new_home)
 export HOME
 export CMUX_NEW_PANE_REF="pane:atomic-1"
-"$HELPER" --caller-pane pane:planner --workspace workspace:14 >/dev/null 2>/tmp/.rap-err.t8
+"$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:14 >/dev/null 2>/tmp/.rap-err.t8
 state_dir="$HOME/.claude/cmux-tab-agents/workspaces"
 leftover=$(find "$state_dir" -name '*.tmp.*' 2>/dev/null | head -1)
 if [[ -z "$leftover" ]] \
@@ -223,19 +224,37 @@ else
   fail "split mode: atomic write leak. leftover='$leftover' err=$(cat /tmp/.rap-err.t8)"
 fi
 
-# T9: cmux new-pane failure → exit 1, no empty stdout, no state file written.
+# T9: cmux new-split failure → exit 1, no empty stdout, no state file written.
 reset_env
 HOME=$(new_home)
 export HOME
-export CMUX_NEW_PANE_FAIL=1
+export CMUX_NEW_SPLIT_FAIL=1
 err_file=$(mktemp)
 TEST_HOMES+=("$err_file")
-out=$("$HELPER" --caller-pane pane:planner --workspace workspace:15 2>"$err_file" || true)
+out=$("$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:15 2>"$err_file" || true)
 state="$HOME/.claude/cmux-tab-agents/workspaces/workspace:15.json"
 if [[ -z "$out" ]] && [[ ! -f "$state" ]] && [[ -s "$err_file" ]]; then
-  pass "cmux new-pane failure: empty stdout, no state file, stderr non-empty"
+  pass "cmux new-split failure: empty stdout, no state file, stderr non-empty"
 else
-  fail "new-pane failure: out='$out' state_exists=$([[ -f "$state" ]] && echo y || echo n) err=$(cat "$err_file")"
+  fail "new-split failure: out='$out' state_exists=$([[ -f "$state" ]] && echo y || echo n) err=$(cat "$err_file")"
+fi
+
+# T10: Split mode without --caller-surface → exits 1 with diagnostic. Split
+# mode anchors the new pane on a specific surface and cannot proceed without
+# it.
+reset_env
+HOME=$(new_home)
+export HOME
+err_file=$(mktemp)
+TEST_HOMES+=("$err_file")
+if "$HELPER" --caller-pane pane:planner --workspace workspace:16 >/dev/null 2>"$err_file"; then
+  fail "split missing --caller-surface: helper should exit non-zero (got 0); err=$(cat "$err_file")"
+else
+  if grep -qi 'caller-surface' "$err_file"; then
+    pass "split mode missing --caller-surface: exits 1 with diagnostic on stderr"
+  else
+    fail "split missing --caller-surface: exit OK but stderr lacks diagnostic; err=$(cat "$err_file")"
+  fi
 fi
 
 printf '\n=== Results: %d passed, %d failed ===\n' "$PASS" "$FAIL"
