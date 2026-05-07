@@ -102,6 +102,20 @@ esac
 STATE_DIR="$HOME/.claude/cmux-tab-agents/workspaces"
 STATE_FILE="$STATE_DIR/${WORKSPACE}.json"
 
+# Short-circuit: if the caller is already inside the persisted agents pane,
+# this is a recursive dispatch (e.g. implementer dispatching reviewers).
+# Return immediately without consulting cmux geometry — that probe is only
+# meaningful for top-level planner-dispatched cases, and racing geometry
+# checks have produced spurious second agents panes when unrelated panes
+# coincidentally satisfy the down-neighbor predicate.
+if [[ -f "$STATE_FILE" ]]; then
+  EXISTING_REF="$(jq -r '.agents_pane_ref // empty' "$STATE_FILE" 2>/dev/null || true)"
+  if [[ -n "$EXISTING_REF" && "$CALLER_PANE" == "$EXISTING_REF" ]]; then
+    printf '%s\n' "$CALLER_PANE"
+    exit 0
+  fi
+fi
+
 # persist_state — atomic write of agents_pane_ref to STATE_FILE.
 persist_state() {
   local ref="$1" tmp now
