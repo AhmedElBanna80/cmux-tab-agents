@@ -43,13 +43,24 @@ Effort controls Claude's thinking time and budget per request. (Override later w
 
 ---
 
-## Step 3: Where to save?
+## Step 3: Tab-agent layout
+
+Where should tab-agent surfaces (implementer, reviewers) spawn relative to the planner? (Override later by setting `agents_pane_layout` in the TOML.)
+
+- **split** — Recommended. Tab-agents spawn into a sibling pane below the planner. The agents pane is created on first dispatch in a workspace and reused for the rest of the session — keeps the planner pane uncluttered.
+- **flat** — Legacy behavior. All tab-agent surfaces live in the planner's pane as flat tabs. Pick this if you prefer one tab strip and don't mind the planner sharing space with its agents.
+- **custom** — Use a specific pane you manage yourself. If picked, you'll be asked for the `pane_ref` (e.g. `pane:42`) to use.
+- **Skip** — Don't set; falls back to the `split` default.
+
+---
+
+## Step 4: Where to save?
 
 Choose whether to save your defaults globally (in `~/.claude/cmux-tab-agents.toml`, recommended for personal defaults) or per-repo (in `.claude/cmux-tab-agents.toml` under the current repo, for project-specific overrides).
 
 ---
 
-## Step 4: Bonus—optional per-repo settings (if new file)
+## Step 5: Bonus—optional per-repo settings (if new file)
 
 If we're creating a fresh config file, you can also set:
 
@@ -64,16 +75,18 @@ Now, begin executing the task per the system prompt. Ask the user for their choi
 
 1. **After model choice**: If not "Skip", store `default_model = "..."`.
 2. **After effort choice**: If not "Skip", store `default_effort = "..."`.
-3. **After save location**: Determine the file path.
-4. **After location**: If the file will be new, offer the bonus prompt for `worktree_base` and `branch_type_default`.
-5. **Read existing file** (if it exists) and preserve unrelated keys.
-6. **Write the merged config** with TOML syntax (flat top-level keys, no `[sections]`).
-7. **Print confirmation**: one line showing what was saved and the resolved settings.
+3. **After layout choice**: If not "Skip", store `agents_pane_layout = "..."`. If the choice is `custom`, also prompt for the pane ref and store `agents_pane_ref = "..."`.
+4. **After save location**: Determine the file path.
+5. **After location**: If the file will be new, offer the bonus prompt for `worktree_base` and `branch_type_default`.
+6. **Read existing file** (if it exists) and preserve unrelated keys.
+7. **Write the merged config** with TOML syntax (flat top-level keys, no `[sections]`).
+8. **Print confirmation**: one line showing what was saved and the resolved settings.
 
 Example output:
 ```
 ✓ Saved to ~/.claude/cmux-tab-agents.toml
 default_model = claude-sonnet-4-6
 default_effort = high
+agents_pane_layout = split
 (To override: --model <id> or CMUX_TAB_AGENTS_DEFAULT_MODEL, --effort <level> or CMUX_TAB_AGENTS_DEFAULT_EFFORT)
 ```
