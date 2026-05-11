@@ -51,7 +51,12 @@ case "$*" in
       echo "mock cmux: new-split forced failure" >&2
       exit 1
     fi
-    printf '{"pane_ref":"%s"}\n' "${CMUX_NEW_PANE_REF:-pane:new-1}"
+    if [[ -n "${CMUX_NEW_SURFACE_REF:-}" ]]; then
+      printf '{"pane_ref":"%s","surface_ref":"%s"}\n' \
+        "${CMUX_NEW_PANE_REF:-pane:new-1}" "$CMUX_NEW_SURFACE_REF"
+    else
+      printf '{"pane_ref":"%s"}\n' "${CMUX_NEW_PANE_REF:-pane:new-1}"
+    fi
     exit 0
     ;;
 esac
@@ -68,7 +73,7 @@ new_home() {
 }
 
 reset_env() {
-  unset CMUX_PANES_FIXTURE CMUX_PANES_JSON_FIXTURE CMUX_NEW_PANE_REF CMUX_NEW_SPLIT_FAIL
+  unset CMUX_PANES_FIXTURE CMUX_PANES_JSON_FIXTURE CMUX_NEW_PANE_REF CMUX_NEW_SPLIT_FAIL CMUX_NEW_SURFACE_REF
   CMUX_LOG=$(mktemp)
   TEST_HOMES+=("$CMUX_LOG")
   export CMUX_LOG
@@ -484,6 +489,45 @@ if [[ "$out" == "pane:27" ]] \
   pass "split + caller is NOT persisted agents pane: existing behavior preserved"
 else
   fail "split + caller is NOT persisted agents pane: out='$out' err=$(cat /tmp/.rap-err.t17) log=$(cat "$CMUX_LOG")"
+fi
+
+# T18: Split mode — fresh pane created via new-split AND mock emits surface_ref →
+# resolver must echo pane ref on line 1 AND surface ref on line 2.
+reset_env
+HOME=$(new_home)
+export HOME
+export CMUX_NEW_PANE_REF="pane:fresh-18"
+export CMUX_NEW_SURFACE_REF="surface:auto-18"
+out=$("$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:30 2>/tmp/.rap-err.t18)
+line1="$(printf '%s' "$out" | head -n1)"
+line2="$(printf '%s' "$out" | sed -n '2p')"
+if [[ "$line1" == "pane:fresh-18" ]] \
+   && [[ "$line2" == "surface:auto-18" ]] \
+   && grep -q -- 'new-split' "$CMUX_LOG"; then
+  pass "fresh pane: resolver emits pane ref on line 1 and auto-surface ref on line 2"
+else
+  fail "fresh pane auto-surface: line1='$line1' line2='$line2' err=$(cat /tmp/.rap-err.t18) log=$(cat "$CMUX_LOG")"
+fi
+
+# T19: Split mode — down-neighbor already exists (pane reused, no new-split) →
+# resolver emits only one line (the pane ref); no auto-surface line.
+reset_env
+HOME=$(new_home)
+export HOME
+export CMUX_NEW_SURFACE_REF="surface:should-not-appear"
+panes_json=$(mktemp)
+TEST_HOMES+=("$panes_json")
+write_panes_json_with_down_neighbor "$panes_json" "pane:planner" "pane:below"
+export CMUX_PANES_JSON_FIXTURE="$panes_json"
+out=$("$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:31 2>/tmp/.rap-err.t19)
+line1="$(printf '%s' "$out" | head -n1)"
+line2="$(printf '%s' "$out" | sed -n '2p')"
+if [[ "$line1" == "pane:below" ]] \
+   && [[ -z "$line2" ]] \
+   && ! grep -q -- 'new-split' "$CMUX_LOG"; then
+  pass "reused pane (down-neighbor): resolver emits only pane ref, no auto-surface line"
+else
+  fail "reused pane no auto-surface: line1='$line1' line2='$line2' err=$(cat /tmp/.rap-err.t19) log=$(cat "$CMUX_LOG")"
 fi
 
 printf '\n=== Results: %d passed, %d failed ===\n' "$PASS" "$FAIL"
