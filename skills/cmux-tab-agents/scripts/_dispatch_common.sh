@@ -421,7 +421,7 @@ PY
   # foreground process name (e.g. "Claude Code") when claude takes over, so
   # the seed prompt's rename inside the agent often gets clobbered. Setting
   # the title against the pre-claude shell makes the custom title stick.
-  cmux rename-tab --surface "$SURFACE" "${TICKET}: ${TITLE}" >/dev/null 2>&1 || true
+  cmux rename-tab --surface "$SURFACE" "${TICKET} ${PHASE}" >/dev/null 2>&1 || true
 
   # 4 (old 4). Resolve model and effort through layered defaults:
   #    MODEL: CLI flag > phase-specific [models].<phase> > default_model > (none)

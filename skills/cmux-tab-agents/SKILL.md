@@ -302,6 +302,14 @@ Forked from upstream `superpowers:subagent-driven-development`, with two additio
 - **Reject any tab-agent result file that mentions `--no-verify`, `HUSKY=0`, hook-skipping, or any other bypass technique.** Re-dispatch the implementer with explicit "fix the hook, do not bypass it" instructions.
 - **Two implementers in the same worktree at the same time** → stop, audit, kill the duplicate. One implementer per worktree.
 
+## Cleanup
+
+After tasks complete (or periodically as housekeeping), run `/cmux-tab-agents:cleanup` to
+reconcile open cmux surfaces, worktrees, branches, and agent event streams against merged GitHub
+PRs. The command discovers stale state, shows a dry-run preview, and asks for per-category
+confirmation before deleting anything. See `references/cleanup-guide.md` for details and the
+difference from the agent-side `done-cleanup.sh`.
+
 ## See also
 
 References: `dispatch-reference.md` (dispatch examples), `configuration.md` (config), `operational-guide.md` (edge cases), `reporting-contract.md`, `upstream-quotes.md`, `skill-structure.md`, `status-conventions.md`.
