@@ -1,0 +1,23 @@
+{
+  "packages": {
+    ".": {
+      "package-name": "cmux-tab-agents-beta",
+      "release-type": "simple",
+      "changelog-path": "BETA-CHANGELOG.md",
+      "prerelease": true,
+      "prerelease-type": "beta",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": ".claude-plugin/plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": ".claude-plugin/marketplace.json",
+          "jsonpath": "$.plugins[1].version"
+        }
+      ]
+    }
+  }
+}
