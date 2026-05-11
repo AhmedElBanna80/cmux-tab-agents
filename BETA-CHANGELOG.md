@@ -16,7 +16,6 @@
 * **ISSUE-72:** lock resolver create path against concurrent dispatches ([#94](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/94)) ([57f1de8](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/57f1de800c2e6b7f8ec60e1248052281c52eac7d))
 * **ISSUE-88:** write claude launch command to launcher script to prevent boot-stuck ([#106](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/106)) ([e7aa56f](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/e7aa56f85b6450f3c3ab22bd526b1c8f4af136b2))
 * **ISSUE-89:** reuse auto-created surface in fresh agents pane ([#107](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/107)) ([2c4725c](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/2c4725c4e6c20bf08e1ec8ba50244747cf5e18c6))
-
 ## [0.11.0-beta.0](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-beta-v0.10.0-beta.0...cmux-tab-agents-beta-v0.11.0-beta.0) (2026-05-11)
 
 

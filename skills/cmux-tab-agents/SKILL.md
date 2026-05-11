@@ -172,6 +172,26 @@ Prints the new tab's surface ref to stderr and the full result file body to stdo
 
 **`--planner-surface` is deprecated:** it is now a no-op (the push channel was removed). Kept for one release for backward compatibility; passing any value is silently ignored. `task-adapter.sh` forces it to `""` regardless.
 
+### Progress event stream (experimental)
+
+**⚠ Experimental** — this channel is additive and does not replace any existing channel. It is a POC; the schema and helper may change in a follow-up release.
+
+The implementer emits structured JSONL progress events to `<worktree>/.cmux-progress.jsonl` at two instrumented points (boot + finish). A planner can subscribe by opening a long-lived `tail -f` shell and using `Monitor` to wait for specific events declaratively — no polling the result file, no double-counting with `task-adapter.sh`.
+
+```bash
+# 1. Open a background tail shell once per task:
+touch "$WORKTREE/.cmux-progress.jsonl"
+tail -f "$WORKTREE/.cmux-progress.jsonl"   # note the returned shellId, e.g. "shell-42"
+
+# 2. Wait for the implementer's boot to complete:
+Monitor(shellId="shell-42", until='"kind":"done".*"name":"boot"', timeout=60)
+
+# 3. Wait for the finish step to complete (PR opened / merge done):
+Monitor(shellId="shell-42", until='"kind":"done".*"name":"finish"', timeout=600)
+```
+
+Event schema: `{v, ts, src, sid, kind, name, payload}` where `v=1`, `src="implementer"`, `kind` is `"started"` or `"done"`, and `payload` carries `{"step": N}`. See `scripts/progress.sh` for the emitter and `scripts/demo-monitor-progress.sh` for a full documented example.
+
 ### Don't double-poll — task-adapter already blocks
 
 `task-adapter.sh` polls the result file internally. When you run it via
@@ -302,6 +322,46 @@ Forked from upstream `superpowers:subagent-driven-development`, with two additio
 - **Reject any tab-agent result file that mentions `--no-verify`, `HUSKY=0`, hook-skipping, or any other bypass technique.** Re-dispatch the implementer with explicit "fix the hook, do not bypass it" instructions.
 - **Two implementers in the same worktree at the same time** → stop, audit, kill the duplicate. One implementer per worktree.
 
+## Task() dispatch — in-process subagents with tab visibility ⚠️ beta-track experimental
+
+> **Status: beta-track experimental (ISSUE-96).** The hooks and scripts in this section are functional but not yet production-hardened. Behaviour may change. Do not use in critical automated pipelines without testing against your environment first.
+
+This dispatch path uses Claude's native `Task()` tool instead of spawning a separate `claude` process per subagent. A single planner process runs all subagents in-process, while three hooks give each subagent its own visible cmux tab.
+
+### How it works
+
+1. The planner calls `Task()` with `subagent_type: "cmux-implementer"` (defined in `agents/cmux-implementer.md`).
+2. The planner's `PreToolUse` hook (`hooks/pre_tool_use.sh`) detects the new `agent_id` and spawns a cmux tab via `cmux new-surface --pane <agents-pane>`. The `agent_id → surface_ref` map is persisted to `~/.cmux-tab-agents/agents/agent_tabs.json`.
+3. `PostToolUse` (`hooks/post_tool_use.sh`) appends each tool call to `~/.cmux-tab-agents/agents/<agent_id>.jsonl`.
+4. `SubagentStop` (`hooks/subagent_stop.sh`) appends a FINISHED line with the last assistant message.
+5. Each spawned tab runs `scripts/agent-tab-renderer.sh <agent_id>.jsonl` to pretty-print the live event stream.
+
+### Setup
+
+Install the three hooks into your planner's working directory:
+
+```bash
+~/.claude/skills/cmux-tab-agents/scripts/install-task-hooks.sh <planner-dir>
+```
+
+This writes/merges `.claude/settings.json` with `PreToolUse`, `PostToolUse`, and `SubagentStop` entries pointing at the hooks above. Idempotent.
+
+### Trade-offs vs. the process-per-subagent path
+
+| | Task() path (this) | Process-per-subagent (default) |
+|---|---|---|
+| Process overhead | Single process | One `claude` process per subagent |
+| Worktree isolation | Shared parent cwd | Dedicated git worktree per task |
+| Boot time | ~0 s | ~10–30 s |
+| IPC plumbing | None (in-process) | cmux, result files, poll scripts |
+| Visibility | Via hooks + JSONL tab | Native cmux tabs |
+| Review pipeline | Planner drives | Implementer-as-task-lead |
+
+Use the Task() path when you want low overhead and don't need per-task git isolation. Use the process-per-subagent path when tasks touch conflicting files or need full worktree isolation.
+
+### State dir
+
+`~/.cmux-tab-agents/agents/` — one JSONL file per `agent_id`, plus `agent_tabs.json` for the id→surface map. Set `CMUX_AGENT_STATE_DIR` to override.
 ## Cleanup
 
 After tasks complete (or periodically as housekeeping), run `/cmux-tab-agents:cleanup` to

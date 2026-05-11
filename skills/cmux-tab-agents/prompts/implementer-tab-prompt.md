@@ -40,8 +40,11 @@ The status pill (`<TICKET>-implementer = working`) and the start-of-phase log en
 
 1. `OWN_SURFACE="{{OWN_SURFACE}}"` — own surface ref for focus shortcuts.
 2. `cd <WORKTREE> && pwd && git status` — verify worktree path and clean state. (Use values from task context below.)
+3. Emit boot started: `bash "{{SKILL_BASE}}/scripts/progress.sh" started 1 boot`
 
 If pwd doesn't match the worktree path exactly, STOP. Set status to `blocked` and notify planner.
+
+Emit boot done after confirming the worktree is correct: `bash "{{SKILL_BASE}}/scripts/progress.sh" done 1`
 
 ## Before You Begin
 
@@ -85,6 +88,48 @@ Replace `<WORKTREE>` with the value from the Task context section below.
 
 ---
 
+## Stream coordination (Phase 3, optional but encouraged)
+
+The progress stream (`.cmux-progress.jsonl`) is a **shared event bus**. Reviewers emit verdicts onto it; you can react to them without re-reading their result files.
+
+To enable peer-to-peer coordination, source the watcher and register a handler before dispatching reviewers:
+
+```bash
+# shellcheck source=/dev/null
+source "{{SKILL_BASE}}/scripts/stream-watcher.sh"
+
+handle_implementer_event() {
+  local event="$1"
+  local verdict feedback issue_hash
+  verdict=$(echo "$event"    | jq -r '.verdict   // empty' 2>/dev/null)
+  feedback=$(echo "$event"   | jq -r '.feedback  // empty' 2>/dev/null)
+  issue_hash=$(echo "$event" | jq -r '.issue_hash // empty' 2>/dev/null)
+  case "$verdict" in
+    APPROVED)     echo "[impl] reviewer APPROVED — proceeding to next step" ;;
+    ISSUES_FOUND) echo "[impl] reviewer ISSUES_FOUND: $feedback (hash=$issue_hash)" ;;
+    BLOCKED)      echo "[impl] reviewer BLOCKED — stop and escalate" ;;
+  esac
+}
+
+watch_stream implementer handle_implementer_event &
+```
+
+When you push a feedback message to a reviewer (e.g. "ready for re-review"), emit it via the stream **as well** as any other channel:
+
+```bash
+bash "{{SKILL_BASE}}/scripts/progress.sh" \
+  --role implementer --target spec-reviewer \
+  --feedback "Fixed line 42, ready for re-review" \
+  --issue-hash "$ISSUE_HASH_FROM_REVIEWER" \
+  feedback 3 spec-fix-round-N
+```
+
+The reviewer's stream-watcher reacts and re-runs without needing a re-dispatch.
+
+**Compatibility note.** v1 events (no `target` field) remain the canonical signal for the planner's status poll. v2 events with `target` are additive — they steer peers but never replace the per-step `started`/`done`/`terminal` v1 events you already emit. Keep emitting v1 progress at the documented step boundaries.
+
+---
+
 ## Task-lead pipeline
 
 After your implementation is `DONE`, you are the **task lead** — you drive the review loop without planner involvement. Max iterations: `{{MAX_LOOP_ITERATIONS}}` (default 5).
@@ -108,6 +153,8 @@ fi
 
 ### Step 1 — dispatch spec-reviewer
 
+Emit before dispatch: `bash "{{SKILL_BASE}}/scripts/progress.sh" started 2 spec-dispatch`
+
 ```bash
 {{SKILL_BASE}}/scripts/dispatch-spec-reviewer.sh \
   --ticket <TICKET> --title <TITLE> --slug <SLUG> \
@@ -119,14 +166,18 @@ fi
 
 Wait on your input box. The spec-reviewer will push back to `$OWN_SURFACE` (= `{{LEAD_SURFACE}}` when you are dispatched as lead).
 
+Emit after the reviewer's verdict file is read: `bash "{{SKILL_BASE}}/scripts/progress.sh" done 2`
+
 ### Step 2 — spec-reviewer loop
 
 - **APPROVED** → proceed to Step 3 (code-reviewer).
-- **ISSUES_FOUND** → fix issues (TDD red-green), commit, then re-dispatch spec-reviewer. Increment iteration counter.
+- **ISSUES_FOUND** → emit `bash "{{SKILL_BASE}}/scripts/progress.sh" started 3 spec-fix-round-<N>`, fix issues (TDD red-green), commit, emit `bash "{{SKILL_BASE}}/scripts/progress.sh" done 3`, then re-dispatch spec-reviewer. Increment iteration counter.
   - If the **same issue is flagged twice in a row** → BLOCKED escalation (write `.cmux-task-result.md` with `status: BLOCKED`, idle; the Stop hook + result file inform the planner).
   - If **iteration counter ≥ {{MAX_LOOP_ITERATIONS}}** → BLOCKED escalation.
 
 ### Step 3 — dispatch code-reviewer
+
+Emit before dispatch: `bash "{{SKILL_BASE}}/scripts/progress.sh" started 4 code-dispatch`
 
 ```bash
 {{SKILL_BASE}}/scripts/dispatch-code-reviewer.sh \
@@ -137,10 +188,12 @@ Wait on your input box. The spec-reviewer will push back to `$OWN_SURFACE` (= `{
   --lead-surface "$OWN_SURFACE"
 ```
 
+Emit after the reviewer's verdict file is read: `bash "{{SKILL_BASE}}/scripts/progress.sh" done 4`
+
 ### Step 4 — code-reviewer loop
 
 - **APPROVED** → proceed to Step 5.
-- **ISSUES_FOUND** → fix issues (TDD), commit, then re-dispatch code-reviewer. Increment counter.
+- **ISSUES_FOUND** → emit `bash "{{SKILL_BASE}}/scripts/progress.sh" started 5 code-fix-round-<N>`, fix issues (TDD), commit, emit `bash "{{SKILL_BASE}}/scripts/progress.sh" done 5`, then re-dispatch code-reviewer. Increment counter.
   - Same circuit-breaker rules as Step 2.
 
 ### Step 5 — save session state (crex)
@@ -165,9 +218,12 @@ When **both reviewers have APPROVED**:
 CREX_SESSION="$({{SKILL_BASE}}/scripts/crex-save.sh 2>/dev/null || echo '')"
 ```
 
-2. Run `{{SKILL_BASE}}/scripts/finish-task.sh {{FINISH_MODE}} <WORKTREE>`.
-3. Write `.cmux-task-result.md` AND `.cmux-implementer-result.md` (schema in `references/reporting-contract.md`), include `crex_session: $CREX_SESSION` in the frontmatter.
-4. Idle. Do **not** push to the planner — the planner waits via `task-adapter.sh` / `poll-result.sh` and reads the result file directly. The Stop lifecycle hook will flip the `<TICKET>-implementer` pill to your terminal status and notify; no `cmux send` to the planner.
+2. Emit finish started: `bash "{{SKILL_BASE}}/scripts/progress.sh" started 6 finish`
+3. Run `{{SKILL_BASE}}/scripts/finish-task.sh {{FINISH_MODE}} <WORKTREE>`.
+4. Emit finish done: `bash "{{SKILL_BASE}}/scripts/progress.sh" done 6`
+5. Write `.cmux-task-result.md` AND `.cmux-implementer-result.md` (schema in `references/reporting-contract.md`), include `crex_session: $CREX_SESSION` in the frontmatter.
+6. Emit terminal status: `bash "{{SKILL_BASE}}/scripts/progress.sh" terminal DONE` (or `terminal BLOCKED` if BLOCKED).
+7. Idle. Do **not** push to the planner — the planner waits via `task-adapter.sh` / `poll-result.sh` and reads the result file directly. The Stop lifecycle hook will flip the `<TICKET>-implementer` pill to your terminal status and notify; no `cmux send` to the planner.
 
 ### Circuit-breaker (hard rule)
 
