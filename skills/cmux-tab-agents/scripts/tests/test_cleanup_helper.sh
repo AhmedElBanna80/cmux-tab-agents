@@ -441,6 +441,35 @@ else
   fail "T16: discover --apply not idempotent — ISSUE-666 still present: $out16"
 fi
 
+# ── T17: close-surfaces --verbose prints per-surface details ─────────────────
+
+tmpT17="$GLOBAL_TMPDIR/T17"
+setup_mocks "$tmpT17"
+
+out17=$(PATH="$tmpT17/bin:$PATH" bash "$HELPER" close-surfaces --verbose --apply surface:31 surface:32 2>&1)
+
+# Verbose marker must appear; both surfaces must appear in marked lines.
+if printf '%s' "$out17" | grep -q '\[verbose\]' && \
+   printf '%s' "$out17" | grep '\[verbose\]' | grep -q "surface:31" && \
+   printf '%s' "$out17" | grep '\[verbose\]' | grep -q "surface:32"; then
+  pass "T17: close-surfaces --verbose --apply prints [verbose] per-surface details"
+else
+  fail "T17: close-surfaces --verbose --apply missing [verbose] per-surface output: $out17"
+fi
+
+# ── T18: close-surfaces --verbose dry-run prints [verbose] details ───────────
+
+tmpT18="$GLOBAL_TMPDIR/T18"
+setup_mocks "$tmpT18"
+
+out18=$(PATH="$tmpT18/bin:$PATH" bash "$HELPER" close-surfaces --verbose surface:41 2>&1)
+if printf '%s' "$out18" | grep -q '\[verbose\]' && \
+   printf '%s' "$out18" | grep '\[verbose\]' | grep -q "surface:41"; then
+  pass "T18: close-surfaces --verbose (dry-run) prints [verbose] details"
+else
+  fail "T18: close-surfaces --verbose (dry-run) missing [verbose] output: $out18"
+fi
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 
 printf '\n=== Results: %d passed, %d failed ===\n' "$PASS" "$FAIL"
