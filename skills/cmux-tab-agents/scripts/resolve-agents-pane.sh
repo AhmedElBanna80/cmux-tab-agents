@@ -198,6 +198,9 @@ if [[ -z "$NEW_REF" ]]; then
   exit 1
 fi
 
+AUTO_SURFACE="$(printf '%s' "$SPAWN_JSON" | jq -r '.surface_ref // empty' 2>/dev/null)"
+
 persist_state "$NEW_REF"
 
 printf '%s\n' "$NEW_REF"
+[[ -n "$AUTO_SURFACE" ]] && printf '%s\n' "$AUTO_SURFACE"
