@@ -302,6 +302,47 @@ Forked from upstream `superpowers:subagent-driven-development`, with two additio
 - **Reject any tab-agent result file that mentions `--no-verify`, `HUSKY=0`, hook-skipping, or any other bypass technique.** Re-dispatch the implementer with explicit "fix the hook, do not bypass it" instructions.
 - **Two implementers in the same worktree at the same time** → stop, audit, kill the duplicate. One implementer per worktree.
 
+## Task() dispatch — in-process subagents with tab visibility ⚠️ beta-track experimental
+
+> **Status: beta-track experimental (ISSUE-96).** The hooks and scripts in this section are functional but not yet production-hardened. Behaviour may change. Do not use in critical automated pipelines without testing against your environment first.
+
+This dispatch path uses Claude's native `Task()` tool instead of spawning a separate `claude` process per subagent. A single planner process runs all subagents in-process, while three hooks give each subagent its own visible cmux tab.
+
+### How it works
+
+1. The planner calls `Task()` with `subagent_type: "cmux-implementer"` (defined in `agents/cmux-implementer.md`).
+2. The planner's `PreToolUse` hook (`hooks/pre_tool_use.sh`) detects the new `agent_id` and spawns a cmux tab via `cmux new-surface --pane <agents-pane>`. The `agent_id → surface_ref` map is persisted to `~/.cmux-tab-agents/agents/agent_tabs.json`.
+3. `PostToolUse` (`hooks/post_tool_use.sh`) appends each tool call to `~/.cmux-tab-agents/agents/<agent_id>.jsonl`.
+4. `SubagentStop` (`hooks/subagent_stop.sh`) appends a FINISHED line with the last assistant message.
+5. Each spawned tab runs `scripts/agent-tab-renderer.sh <agent_id>.jsonl` to pretty-print the live event stream.
+
+### Setup
+
+Install the three hooks into your planner's working directory:
+
+```bash
+~/.claude/skills/cmux-tab-agents/scripts/install-task-hooks.sh <planner-dir>
+```
+
+This writes/merges `.claude/settings.json` with `PreToolUse`, `PostToolUse`, and `SubagentStop` entries pointing at the hooks above. Idempotent.
+
+### Trade-offs vs. the process-per-subagent path
+
+| | Task() path (this) | Process-per-subagent (default) |
+|---|---|---|
+| Process overhead | Single process | One `claude` process per subagent |
+| Worktree isolation | Shared parent cwd | Dedicated git worktree per task |
+| Boot time | ~0 s | ~10–30 s |
+| IPC plumbing | None (in-process) | cmux, result files, poll scripts |
+| Visibility | Via hooks + JSONL tab | Native cmux tabs |
+| Review pipeline | Planner drives | Implementer-as-task-lead |
+
+Use the Task() path when you want low overhead and don't need per-task git isolation. Use the process-per-subagent path when tasks touch conflicting files or need full worktree isolation.
+
+### State dir
+
+`~/.cmux-tab-agents/agents/` — one JSONL file per `agent_id`, plus `agent_tabs.json` for the id→surface map. Set `CMUX_AGENT_STATE_DIR` to override.
+
 ## See also
 
 References: `dispatch-reference.md` (dispatch examples), `configuration.md` (config), `operational-guide.md` (edge cases), `reporting-contract.md`, `upstream-quotes.md`, `skill-structure.md`, `status-conventions.md`.
