@@ -16,6 +16,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./workspace-state.sh
+source "$SCRIPT_DIR/workspace-state.sh"
+
 # Config (from environment or defaults)
 FINISH_MODE="${1:-keep}"
 WORKTREE="${2:-.}"
@@ -76,6 +80,53 @@ if ! run_tests; then
 fi
 
 log "Verification gate passed."
+
+# ============================================================================
+# Cleanup manifest: read ticket from dispatch.json, look up surfaces from
+# workspace state, write .cmux-cleanup-manifest.json so the planner can offer
+# auto-cleanup once both reviewers have approved.
+# ============================================================================
+
+bash "$SCRIPT_DIR/progress.sh" --role implementer started 2 finish-cleanup-manifest 2>/dev/null || true
+
+TICKET=""
+DISPATCH_JSON="$WORKTREE/.cmux-state/dispatch.json"
+if [[ -f "$DISPATCH_JSON" ]]; then
+  TICKET=$(python3 -c "import json,sys
+try:
+    print(json.load(open('$DISPATCH_JSON')).get('ticket',''))
+except Exception:
+    print('')" 2>/dev/null || true)
+fi
+
+if [[ -n "$TICKET" ]]; then
+  SURFACES_JSON=$(get_ticket_surfaces "$TICKET" 2>/dev/null || echo '{}')
+  MANIFEST="$WORKTREE/.cmux-cleanup-manifest.json"
+  TICKET="$TICKET" WT="$WORKTREE" MODE="$FINISH_MODE" \
+    SURFACES="$SURFACES_JSON" MPATH="$MANIFEST" \
+    python3 - <<'PY' || log "WARNING: could not write cleanup manifest"
+import json, os, time
+manifest = {
+    "v": 1,
+    "ticket": os.environ["TICKET"],
+    "worktree": os.environ["WT"],
+    "finish_mode": os.environ["MODE"],
+    "surfaces": json.loads(os.environ.get("SURFACES") or "{}"),
+    "written_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+}
+path = os.environ["MPATH"]
+tmp = path + ".tmp"
+with open(tmp, "w", encoding="utf-8") as fh:
+    json.dump(manifest, fh, indent=2)
+    fh.write("\n")
+os.replace(tmp, path)
+PY
+  log "Wrote cleanup manifest: $MANIFEST"
+else
+  log "Skipping cleanup manifest: no ticket in $DISPATCH_JSON"
+fi
+
+bash "$SCRIPT_DIR/progress.sh" --role implementer "done" 2 finish-cleanup-manifest 2>/dev/null || true
 
 # ============================================================================
 # Mode-specific actions
