@@ -372,25 +372,32 @@ PY
   # ("split" layout) creates a sibling pane below the planner on first
   # dispatch in this workspace and reuses it thereafter. See
   # resolve-agents-pane.sh and references/configuration.md.
-  local AGENTS_PANE
-  if ! AGENTS_PANE=$("$SCRIPT_DIR/resolve-agents-pane.sh" \
+  # When the resolver creates a new pane it also emits the auto-created
+  # surface ref on a second stdout line — reuse it to avoid a dead tab.
+  local RESOLVE_OUT AGENTS_PANE AUTO_SURFACE
+  if ! RESOLVE_OUT=$("$SCRIPT_DIR/resolve-agents-pane.sh" \
         --caller-pane "$CALLER_PANE" \
         --caller-surface "$CALLER_SURFACE" \
         --workspace "$PLANNER_WS" 2>&1); then
-    echo "$0: resolve-agents-pane.sh failed: $AGENTS_PANE" >&2
+    echo "$0: resolve-agents-pane.sh failed: $RESOLVE_OUT" >&2
     exit 1
   fi
-
-  local SPAWN_JSON
-  if ! SPAWN_JSON=$(cmux --json new-surface --type terminal --pane "$AGENTS_PANE" 2>/dev/null); then
-    echo "$0: cmux new-surface failed (pane=$AGENTS_PANE)" >&2
-    exit 1
-  fi
+  AGENTS_PANE="$(printf '%s' "$RESOLVE_OUT" | head -n1)"
+  AUTO_SURFACE="$(printf '%s' "$RESOLVE_OUT" | sed -n '2p')"
 
   local SURFACE
-  SURFACE=$(printf '%s' "$SPAWN_JSON" | python3 -c \
-    'import sys,json; d=json.load(sys.stdin); print(d.get("surface_ref") or d.get("surface",{}).get("ref",""))' 2>/dev/null)
-  [[ -z "$SURFACE" ]] && { echo "$0: could not parse surface ref from: $SPAWN_JSON" >&2; exit 1; }
+  if [[ -n "$AUTO_SURFACE" ]]; then
+    SURFACE="$AUTO_SURFACE"
+  else
+    local SPAWN_JSON
+    if ! SPAWN_JSON=$(cmux --json new-surface --type terminal --pane "$AGENTS_PANE" 2>/dev/null); then
+      echo "$0: cmux new-surface failed (pane=$AGENTS_PANE)" >&2
+      exit 1
+    fi
+    SURFACE=$(printf '%s' "$SPAWN_JSON" | python3 -c \
+      'import sys,json; d=json.load(sys.stdin); print(d.get("surface_ref") or d.get("surface",{}).get("ref",""))' 2>/dev/null)
+    [[ -z "$SURFACE" ]] && { echo "$0: could not parse surface ref from: $SPAWN_JSON" >&2; exit 1; }
+  fi
 
   # 3. Render seed prompt for this phase. Now that SURFACE is known, pass it as OWN_SURFACE.
   local TEMPLATE
