@@ -46,6 +46,8 @@ case "$PHASE" in
 esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./workspace-state.sh
+source "$SCRIPT_DIR/workspace-state.sh"
 DISPATCH="$SCRIPT_DIR/dispatch-${PHASE}.sh"
 POLL="$SCRIPT_DIR/poll-result.sh"
 [[ -x "$DISPATCH" ]] || { echo "task-adapter: dispatch script not found: $DISPATCH" >&2; exit 1; }
@@ -104,4 +106,37 @@ fi
 if ! "$POLL" --worktree "$WT" --phase "$PHASE" --timeout "$TIMEOUT" --full; then
   echo "task-adapter: poll-result.sh exited non-zero for $WT phase=$PHASE" >&2
   exit 2
+fi
+
+# After the implementer's lead pipeline completes, check for the cleanup
+# manifest written by finish-task.sh and drop a .cmux-cleanup-ready marker so
+# the planner can prompt the user for auto-cleanup.
+if [[ "$PHASE" == "implementer" ]]; then
+  bash "$SCRIPT_DIR/progress.sh" --role planner started 3 prompt-cleanup 2>/dev/null || true
+  MANIFEST="$WT/.cmux-cleanup-manifest.json"
+  if [[ -f "$MANIFEST" ]]; then
+    MARKER="$WT/.cmux-cleanup-ready"
+    MPATH="$MANIFEST" MARKER_PATH="$MARKER" python3 - <<'PY' 2>/dev/null || true
+import json, os, time
+manifest_path = os.environ["MPATH"]
+with open(manifest_path, "r", encoding="utf-8") as fh:
+    manifest = json.load(fh)
+marker = {
+    "v": 1,
+    "manifest": os.path.basename(manifest_path),
+    "ticket": manifest.get("ticket", ""),
+    "worktree": manifest.get("worktree", ""),
+    "surfaces": manifest.get("surfaces", {}),
+    "ready_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+}
+path = os.environ["MARKER_PATH"]
+tmp = path + ".tmp"
+with open(tmp, "w", encoding="utf-8") as fh:
+    json.dump(marker, fh, indent=2)
+    fh.write("\n")
+os.replace(tmp, path)
+PY
+    printf 'task-adapter: cleanup ready at %s\n' "$WT/.cmux-cleanup-ready" >&2
+  fi
+  bash "$SCRIPT_DIR/progress.sh" --role planner "done" 3 prompt-cleanup 2>/dev/null || true
 fi

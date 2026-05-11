@@ -9,6 +9,19 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# shellcheck source=./workspace-state.sh
+source "$SCRIPT_DIR/workspace-state.sh"
+
+# _phase_progress_step <phase> — map phase name to planner-side progress step number.
+_phase_progress_step() {
+  case "$1" in
+    implementer)    echo 1 ;;
+    spec-reviewer)  echo 2 ;;
+    code-reviewer)  echo 3 ;;
+    *)              echo 0 ;;
+  esac
+}
+
 usage() {
   cat >&2 <<EOF
 Usage: $0 --ticket TICKET --title TITLE --slug SLUG \\
@@ -270,6 +283,12 @@ dispatch_main() {
   [[ -z "$TITLE"  ]] && { echo "$0: --title required"  >&2; usage; }
   [[ -z "$SLUG"   ]] && { echo "$0: --slug required"   >&2; usage; }
 
+  # Planner-side progress event: dispatch started (step 1/2/3 by phase).
+  local _step _phase
+  _phase="${PHASE:-}"
+  _step=$(_phase_progress_step "$_phase")
+  bash "$SCRIPT_DIR/progress.sh" --role planner started "$_step" "dispatch-$_phase" 2>/dev/null || true
+
   # Validate finish-mode: must be one of keep, pr, merge (discard not supported at dispatch)
   case "$FINISH_MODE" in
     keep|pr|merge) ;;
@@ -494,6 +513,12 @@ PY
     --icon clock --color "#ff9500" \
     --workspace "$PLANNER_WS" >/dev/null 2>&1 || true
 
-  # 7. Emit the surface ref for the planner.
+  # 7a. Track surface in per-workspace state so finish-task can emit a cleanup manifest.
+  add_surface "$TICKET" "$_phase" "$SURFACE" 2>/dev/null || true
+
+  # 7b. Planner-side progress event: dispatch done.
+  bash "$SCRIPT_DIR/progress.sh" --role planner "done" "$_step" "dispatch-$_phase" 2>/dev/null || true
+
+  # 8. Emit the surface ref for the planner.
   echo "$SURFACE"
 }

@@ -24,6 +24,13 @@ trap 'rm -rf "$STAGE"' EXIT
 # Build a minimal stub scripts directory mirroring the real layout.
 cp "$SCRIPTS_DIR/task-adapter.sh" "$STAGE/task-adapter.sh"
 chmod +x "$STAGE/task-adapter.sh"
+# task-adapter sources workspace-state.sh; copy real helper, and stub progress.sh.
+cp "$SCRIPTS_DIR/workspace-state.sh" "$STAGE/workspace-state.sh"
+cat > "$STAGE/progress.sh" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$STAGE/progress.sh"
 
 # Stub dispatch-implementer.sh: log args, echo a fake surface ref, exit 0.
 ARGS_LOG="$STAGE/dispatch-args.log"
