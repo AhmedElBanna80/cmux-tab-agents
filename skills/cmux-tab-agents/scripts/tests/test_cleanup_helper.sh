@@ -56,7 +56,9 @@ exit 1
 MOCK_GH
   chmod +x "$mockdir/bin/gh"
 
-  # mock cmux — supports `tree` and `close-surface`
+  # mock cmux — supports `tree`, `get-surface`, and `close-surface`.
+  # get-surface returns 0 iff the ref is listed in <config>/known_surfaces,
+  # or if known_surfaces does not exist (back-compat default).
   cat > "$mockdir/bin/cmux" <<'MOCK_CMUX'
 #!/usr/bin/env bash
 CONFIG="$(dirname "$(dirname "$0")")/mock-config"
@@ -64,6 +66,17 @@ case "$1" in
   tree)
     if [[ -f "$CONFIG/surfaces_json" ]]; then cat "$CONFIG/surfaces_json"
     else printf '{"surfaces":[]}\n'; fi ;;
+  get-surface)
+    ref=""
+    prev=""
+    for arg in "$@"; do
+      [[ "$prev" == "--surface" ]] && ref="$arg"
+      prev="$arg"
+    done
+    if [[ -f "$CONFIG/known_surfaces" ]]; then
+      grep -qxF "$ref" "$CONFIG/known_surfaces" || { printf 'no such surface: %s\n' "$ref" >&2; exit 1; }
+    fi
+    printf '{"id":"%s"}\n' "$ref" ;;
   close-surface)
     printf '%s\n' "$*" >> "$CONFIG/close_surface_calls" ;;
   *) exit 0 ;;
@@ -439,6 +452,86 @@ for cat in ('idle_surfaces','merged_worktrees','merged_branches','stale_streams'
   pass "T16: discover --apply is idempotent"
 else
   fail "T16: discover --apply not idempotent — ISSUE-666 still present: $out16"
+fi
+
+# ── T17: close-surfaces --verbose prints per-surface details ─────────────────
+
+tmpT17="$GLOBAL_TMPDIR/T17"
+setup_mocks "$tmpT17"
+
+out17=$(PATH="$tmpT17/bin:$PATH" bash "$HELPER" close-surfaces --verbose --apply surface:31 surface:32 2>&1)
+
+# Verbose marker must appear; both surfaces must appear in marked lines.
+if printf '%s' "$out17" | grep -q '\[verbose\]' && \
+   printf '%s' "$out17" | grep '\[verbose\]' | grep -q "surface:31" && \
+   printf '%s' "$out17" | grep '\[verbose\]' | grep -q "surface:32"; then
+  pass "T17: close-surfaces --verbose --apply prints [verbose] per-surface details"
+else
+  fail "T17: close-surfaces --verbose --apply missing [verbose] per-surface output: $out17"
+fi
+
+# ── T18: close-surfaces --verbose dry-run prints [verbose] details ───────────
+
+tmpT18="$GLOBAL_TMPDIR/T18"
+setup_mocks "$tmpT18"
+
+out18=$(PATH="$tmpT18/bin:$PATH" bash "$HELPER" close-surfaces --verbose surface:41 2>&1)
+if printf '%s' "$out18" | grep -q '\[verbose\]' && \
+   printf '%s' "$out18" | grep '\[verbose\]' | grep -q "surface:41"; then
+  pass "T18: close-surfaces --verbose (dry-run) prints [verbose] details"
+else
+  fail "T18: close-surfaces --verbose (dry-run) missing [verbose] output: $out18"
+fi
+
+# ── T19: close-surfaces --verbose --apply skips non-existent surface ─────────
+
+tmpT19="$GLOBAL_TMPDIR/T19"
+setup_mocks "$tmpT19"
+# Only surface:exists is "known"; surface:ghost should be skipped.
+printf 'surface:exists\n' > "$tmpT19/mock-config/known_surfaces"
+
+out19=$(PATH="$tmpT19/bin:$PATH" bash "$HELPER" close-surfaces --verbose --apply surface:exists surface:ghost 2>&1)
+calls19="$tmpT19/mock-config/close_surface_calls"
+
+# (a) emits a distinct "not found" verbose marker for the missing ref
+if printf '%s' "$out19" | grep -q '\[verbose\] not found: surface:ghost'; then
+  pass "T19a: --verbose emits [verbose] not found for missing surface"
+else
+  fail "T19a: missing [verbose] not found marker: $out19"
+fi
+
+# (b) does NOT call cmux close-surface for the missing ref
+if [[ ! -f "$calls19" ]] || ! grep -q "surface:ghost" "$calls19"; then
+  pass "T19b: close-surface NOT invoked for missing ref"
+else
+  fail "T19b: close-surface unexpectedly invoked for surface:ghost: $(cat "$calls19")"
+fi
+
+# (c) still calls cmux close-surface for the existing ref
+if [[ -f "$calls19" ]] && grep -q "surface:exists" "$calls19"; then
+  pass "T19c: close-surface invoked for existing ref"
+else
+  fail "T19c: close-surface NOT invoked for surface:exists: $(cat "$calls19" 2>/dev/null || echo '(no file)')"
+fi
+
+# (d) does NOT emit the [close failed] marker for the missing ref (no false positive)
+if ! printf '%s' "$out19" | grep -q '\[verbose\] close failed: surface:ghost'; then
+  pass "T19d: missing surface does NOT produce [verbose] close failed marker"
+else
+  fail "T19d: missing surface conflated with close failure: $out19"
+fi
+
+# ── T20: --verbose surfaces the underlying lookup-failure reason ──────────────
+
+tmpT20="$GLOBAL_TMPDIR/T20"
+setup_mocks "$tmpT20"
+printf '\n' > "$tmpT20/mock-config/known_surfaces"  # empty allowlist → all refs unknown
+
+out20=$(PATH="$tmpT20/bin:$PATH" bash "$HELPER" close-surfaces --verbose --apply surface:phantom 2>&1)
+if printf '%s' "$out20" | grep -q "no such surface: surface:phantom"; then
+  pass "T20: --verbose preserves underlying cmux stderr for lookup failure"
+else
+  fail "T20: stderr not surfaced under --verbose: $out20"
 fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────
