@@ -338,6 +338,109 @@ else
   fail "T13: idempotency failed — ISSUE-321 still appears after cleanup: $out13b"
 fi
 
+# ── T14: discover --apply emits JSON AND applies cleanup ─────────────────────
+
+tmpT14="$GLOBAL_TMPDIR/T14"
+setup_mocks "$tmpT14"
+printf 'ISSUE-444\n' > "$tmpT14/mock-config/merged_tickets"
+wt_base14="$tmpT14/worktrees"
+mkdir -p "$wt_base14/ISSUE-444/cmux-tab-agents"
+touch -t 202601010000 "$wt_base14/ISSUE-444/cmux-tab-agents/.cmux-events.jsonl" 2>/dev/null || \
+  touch "$wt_base14/ISSUE-444/cmux-tab-agents/.cmux-events.jsonl"
+agents_dir14="$tmpT14/agents"; mkdir -p "$agents_dir14"
+
+out14=$(PATH="$tmpT14/bin:$PATH" \
+  CMUX_TAB_AGENTS_WORKTREE_BASE="$wt_base14" \
+  CMUX_TAB_AGENTS_AGENTS_DIR="$agents_dir14" \
+  bash "$HELPER" discover --apply 2>/dev/null)
+
+# T14a: JSON discovery block is still present (callers see what was found)
+if printf '%s' "$out14" | python3 -c "
+import sys,json,re
+text=sys.stdin.read()
+# JSON object should appear somewhere in output
+m=re.search(r'\{[^{}]*\"idle_surfaces\".*?\}',text,re.DOTALL)
+assert m, 'no JSON discovery block in --apply output'
+d=json.loads(m.group(0))
+paths=d.get('merged_worktrees',[])
+assert any('ISSUE-444' in str(p) for p in paths), f'not found: {paths}'
+" 2>/dev/null; then
+  pass "T14a: discover --apply still emits JSON discovery block"
+else
+  fail "T14a: discover --apply missing JSON: $out14"
+fi
+
+# T14b: worktree should actually be removed
+if [[ ! -d "$wt_base14/ISSUE-444/cmux-tab-agents" ]]; then
+  pass "T14b: discover --apply removed the merged worktree"
+else
+  fail "T14b: discover --apply did not remove worktree at $wt_base14/ISSUE-444/cmux-tab-agents"
+fi
+
+# T14c: applied summary printed after JSON
+if printf '%s' "$out14" | grep -qiE "applied|removed|cleanup"; then
+  pass "T14c: discover --apply prints applied summary"
+else
+  fail "T14c: discover --apply did not print applied summary: $out14"
+fi
+
+# ── T15: discover (no --apply) leaves filesystem untouched ────────────────────
+
+tmpT15="$GLOBAL_TMPDIR/T15"
+setup_mocks "$tmpT15"
+printf 'ISSUE-555\n' > "$tmpT15/mock-config/merged_tickets"
+wt_base15="$tmpT15/worktrees"
+mkdir -p "$wt_base15/ISSUE-555/cmux-tab-agents"
+touch -t 202601010000 "$wt_base15/ISSUE-555/cmux-tab-agents/.cmux-events.jsonl" 2>/dev/null || \
+  touch "$wt_base15/ISSUE-555/cmux-tab-agents/.cmux-events.jsonl"
+agents_dir15="$tmpT15/agents"; mkdir -p "$agents_dir15"
+
+PATH="$tmpT15/bin:$PATH" \
+  CMUX_TAB_AGENTS_WORKTREE_BASE="$wt_base15" \
+  CMUX_TAB_AGENTS_AGENTS_DIR="$agents_dir15" \
+  bash "$HELPER" discover >/dev/null 2>&1
+
+if [[ -d "$wt_base15/ISSUE-555/cmux-tab-agents" ]]; then
+  pass "T15: discover (no --apply) leaves worktree intact"
+else
+  fail "T15: discover (no --apply) removed worktree — must be dry-run by default"
+fi
+
+# ── T16: discover --apply is idempotent (second run finds nothing) ────────────
+
+tmpT16="$GLOBAL_TMPDIR/T16"
+setup_mocks "$tmpT16"
+printf 'ISSUE-666\n' > "$tmpT16/mock-config/merged_tickets"
+wt_base16="$tmpT16/worktrees"
+mkdir -p "$wt_base16/ISSUE-666/cmux-tab-agents"
+touch -t 202601010000 "$wt_base16/ISSUE-666/cmux-tab-agents/.cmux-events.jsonl" 2>/dev/null || \
+  touch "$wt_base16/ISSUE-666/cmux-tab-agents/.cmux-events.jsonl"
+agents_dir16="$tmpT16/agents"; mkdir -p "$agents_dir16"
+
+# First apply
+PATH="$tmpT16/bin:$PATH" \
+  CMUX_TAB_AGENTS_WORKTREE_BASE="$wt_base16" \
+  CMUX_TAB_AGENTS_AGENTS_DIR="$agents_dir16" \
+  bash "$HELPER" discover --apply >/dev/null 2>&1
+
+# Second discover (dry-run) should find nothing about ISSUE-666
+out16=$(PATH="$tmpT16/bin:$PATH" \
+  CMUX_TAB_AGENTS_WORKTREE_BASE="$wt_base16" \
+  CMUX_TAB_AGENTS_AGENTS_DIR="$agents_dir16" \
+  bash "$HELPER" discover 2>/dev/null)
+
+if printf '%s' "$out16" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+for cat in ('idle_surfaces','merged_worktrees','merged_branches','stale_streams'):
+    for item in d.get(cat,[]):
+        assert 'ISSUE-666' not in str(item), f'ISSUE-666 still in {cat}: {item}'
+" 2>/dev/null; then
+  pass "T16: discover --apply is idempotent"
+else
+  fail "T16: discover --apply not idempotent — ISSUE-666 still present: $out16"
+fi
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 
 printf '\n=== Results: %d passed, %d failed ===\n' "$PASS" "$FAIL"
