@@ -111,33 +111,41 @@ emit_done() {
 
 start_ts=$(date +%s)
 
-# Use a FIFO-driven tail -f so we can stop cleanly when we see the terminal event.
-# Note: tail -F retries if the file is rotated; we use -f because the file is append-only.
-{ tail -n +1 -f "$PROGRESS_FILE" & echo $! >&3; } 3>"$WORKTREE/.cmux-monitor.pid" | \
+# Start tail -f in the background so the read loop runs in *this* shell — that
+# way `exit` actually exits the script rather than just the subshell on the
+# right side of a pipe.
+PID_FILE="$WORKTREE/.cmux-monitor.pid"
+FIFO="$WORKTREE/.cmux-monitor.fifo"
+rm -f "$FIFO"
+mkfifo "$FIFO" 2>/dev/null || { printf 'monitor-worktree-progress.sh: cannot create fifo\n' >&2; exit 1; }
+
+tail -n +1 -f "$PROGRESS_FILE" > "$FIFO" &
+TAIL_PID=$!
+echo "$TAIL_PID" > "$PID_FILE"
+
+cleanup() {
+  [[ -n "${TAIL_PID:-}" ]] && kill "$TAIL_PID" 2>/dev/null
+  rm -f "$PID_FILE" "$FIFO"
+}
+trap cleanup EXIT INT TERM
+
+exit_code=0
 while IFS= read -r line; do
   [[ -z "$line" ]] && continue
 
-  # Timeout check
   if [[ -n "$TIMEOUT" ]]; then
     elapsed=$(( $(date +%s) - start_ts ))
     if [[ "$elapsed" -ge "$TIMEOUT" ]]; then
       printf 'monitor-worktree-progress.sh: timeout after %ss\n' "$TIMEOUT" >&2
-      tail_pid=$(cat "$WORKTREE/.cmux-monitor.pid" 2>/dev/null || echo "")
-      [[ -n "$tail_pid" ]] && kill "$tail_pid" 2>/dev/null
-      rm -f "$WORKTREE/.cmux-monitor.pid"
-      exit 2
+      exit_code=2
+      break
     fi
   fi
 
   if emit_done "$line"; then
-    # Terminal event: code-reviewer done. Stop the tail and exit.
-    tail_pid=$(cat "$WORKTREE/.cmux-monitor.pid" 2>/dev/null || echo "")
-    [[ -n "$tail_pid" ]] && kill "$tail_pid" 2>/dev/null
-    rm -f "$WORKTREE/.cmux-monitor.pid"
-    exit 0
+    exit_code=0
+    break
   fi
-done
+done < "$FIFO"
 
-# tail exited unexpectedly
-rm -f "$WORKTREE/.cmux-monitor.pid"
-exit 0
+exit "$exit_code"

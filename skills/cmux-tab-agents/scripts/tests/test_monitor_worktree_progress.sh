@@ -6,7 +6,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 SKILL_ROOT="$(cd "$SCRIPTS_DIR/.." && pwd)"
 MONITOR_SH="$SCRIPTS_DIR/monitor-worktree-progress.sh"
-PROGRESS_SH="$SCRIPTS_DIR/progress.sh"
 
 PASS=0
 FAIL=0
@@ -60,19 +59,35 @@ trap 'rm -rf "$tmpdir"' EXIT
 PROGRESS_FILE="$tmpdir/.cmux-progress.jsonl"
 touch "$PROGRESS_FILE"
 
-# Start monitor in background; capture output
+# Seed JSONL events directly — independent of progress.sh, so the monitor is
+# tested in isolation. Schema matches what progress.sh produces.
+emit() {
+  # emit <kind> <role> <step> <name>
+  local kind="$1" role="$2" step="$3" name="$4"
+  local src
+  case "$role" in
+    spec-reviewer)  src="spec" ;;
+    code-reviewer)  src="code" ;;
+    *)              src="implementer" ;;
+  esac
+  printf '{"v":1,"ts":"2025-01-01T00:00:00Z","src":"%s","sid":"test","kind":"%s","name":"%s","agent_role":"%s","payload":{"step":"%s","agent_role":"%s"}}\n' \
+    "$src" "$kind" "$name" "$role" "$step" "$role" >> "$PROGRESS_FILE"
+}
+
+# Start monitor in background; capture output, surface stderr (don't silently drop).
 out_file="$tmpdir/monitor.out"
-bash "$MONITOR_SH" "$tmpdir" > "$out_file" 2>&1 &
+err_file="$tmpdir/monitor.err"
+bash "$MONITOR_SH" "$tmpdir" > "$out_file" 2> "$err_file" &
 mon_pid=$!
 sleep 0.3
 
-# Emit a realistic sequence
-(cd "$tmpdir" && bash "$PROGRESS_SH" started 1 boot >/dev/null 2>&1)
-(cd "$tmpdir" && bash "$PROGRESS_SH" done 1 >/dev/null 2>&1)
-(cd "$tmpdir" && bash "$PROGRESS_SH" --role spec-reviewer started review-began >/dev/null 2>&1)
-(cd "$tmpdir" && bash "$PROGRESS_SH" --role spec-reviewer done review-began >/dev/null 2>&1)
-(cd "$tmpdir" && bash "$PROGRESS_SH" --role code-reviewer started review-began >/dev/null 2>&1)
-(cd "$tmpdir" && bash "$PROGRESS_SH" --role code-reviewer done review-began >/dev/null 2>&1)
+# Emit a realistic sequence directly into the JSONL stream.
+emit started implementer 1 boot
+emit done    implementer 1 boot
+emit started spec-reviewer review review-began
+emit done    spec-reviewer review review-began
+emit started code-reviewer review review-began
+emit done    code-reviewer review review-began
 sleep 0.5
 
 # Wait up to 3s for monitor to exit on its own
