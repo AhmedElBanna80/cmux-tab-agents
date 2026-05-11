@@ -88,6 +88,48 @@ Replace `<WORKTREE>` with the value from the Task context section below.
 
 ---
 
+## Stream coordination (Phase 3, optional but encouraged)
+
+The progress stream (`.cmux-progress.jsonl`) is a **shared event bus**. Reviewers emit verdicts onto it; you can react to them without re-reading their result files.
+
+To enable peer-to-peer coordination, source the watcher and register a handler before dispatching reviewers:
+
+```bash
+# shellcheck source=/dev/null
+source "{{SKILL_BASE}}/scripts/stream-watcher.sh"
+
+handle_implementer_event() {
+  local event="$1"
+  local verdict feedback issue_hash
+  verdict=$(echo "$event"    | jq -r '.verdict   // empty' 2>/dev/null)
+  feedback=$(echo "$event"   | jq -r '.feedback  // empty' 2>/dev/null)
+  issue_hash=$(echo "$event" | jq -r '.issue_hash // empty' 2>/dev/null)
+  case "$verdict" in
+    APPROVED)     echo "[impl] reviewer APPROVED — proceeding to next step" ;;
+    ISSUES_FOUND) echo "[impl] reviewer ISSUES_FOUND: $feedback (hash=$issue_hash)" ;;
+    BLOCKED)      echo "[impl] reviewer BLOCKED — stop and escalate" ;;
+  esac
+}
+
+watch_stream implementer handle_implementer_event &
+```
+
+When you push a feedback message to a reviewer (e.g. "ready for re-review"), emit it via the stream **as well** as any other channel:
+
+```bash
+bash "{{SKILL_BASE}}/scripts/progress.sh" \
+  --role implementer --target spec-reviewer \
+  --feedback "Fixed line 42, ready for re-review" \
+  --issue-hash "$ISSUE_HASH_FROM_REVIEWER" \
+  feedback 3 spec-fix-round-N
+```
+
+The reviewer's stream-watcher reacts and re-runs without needing a re-dispatch.
+
+**Compatibility note.** v1 events (no `target` field) remain the canonical signal for the planner's status poll. v2 events with `target` are additive — they steer peers but never replace the per-step `started`/`done`/`terminal` v1 events you already emit. Keep emitting v1 progress at the documented step boundaries.
+
+---
+
 ## Task-lead pipeline
 
 After your implementation is `DONE`, you are the **task lead** — you drive the review loop without planner involvement. Max iterations: `{{MAX_LOOP_ITERATIONS}}` (default 5).

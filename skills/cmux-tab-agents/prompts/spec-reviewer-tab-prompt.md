@@ -28,6 +28,47 @@ The status pill (`<TICKET>-spec-reviewer = working`) and the start-of-phase log 
 2. `cd <WORKTREE> && pwd && git log --oneline -5` — verify worktree path and see recent commits.
 3. Emit review started: `bash "{{SKILL_BASE}}/scripts/progress.sh" --role spec-reviewer started review-began`
 
+## Stream coordination (Phase 3)
+
+When you emit your verdict, also emit it on the v2 progress stream targeting the implementer so the implementer's stream-watcher can react without polling your result file:
+
+```bash
+# APPROVED
+bash "{{SKILL_BASE}}/scripts/progress.sh" \
+  --role spec-reviewer --target implementer \
+  --verdict APPROVED \
+  verdict 2 spec-review
+
+# ISSUES_FOUND — include feedback and a stable issue_hash for circuit-breaker dedup
+ISSUE_HASH=$(printf '%s' "$ISSUE_SUMMARY" | shasum -a 256 | cut -c1-12)
+bash "{{SKILL_BASE}}/scripts/progress.sh" \
+  --role spec-reviewer --target implementer \
+  --verdict ISSUES_FOUND \
+  --feedback "$ISSUE_SUMMARY" \
+  --issue-hash "$ISSUE_HASH" \
+  verdict 2 spec-review
+```
+
+If you want to react to implementer "ready for re-review" feedback without being re-dispatched, source the watcher at boot:
+
+```bash
+# shellcheck source=/dev/null
+source "{{SKILL_BASE}}/scripts/stream-watcher.sh"
+
+handle_spec_event() {
+  local event="$1"
+  local feedback
+  feedback=$(echo "$event" | jq -r '.feedback // empty' 2>/dev/null)
+  if [[ "$feedback" == *"ready for re-review"* ]]; then
+    echo "[spec] implementer signaled re-review; restart your spec checks"
+  fi
+}
+
+watch_stream spec-reviewer handle_spec_event &
+```
+
+Keep emitting the v1 `review-began` event — v2 verdict events do **not** replace v1 step progress.
+
 ## What was requested
 
 (See task context section at end of prompt)
