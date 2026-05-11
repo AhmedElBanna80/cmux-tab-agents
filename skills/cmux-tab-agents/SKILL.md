@@ -362,7 +362,6 @@ Use the Task() path when you want low overhead and don't need per-task git isola
 ### State dir
 
 `~/.cmux-tab-agents/agents/` — one JSONL file per `agent_id`, plus `agent_tabs.json` for the id→surface map. Set `CMUX_AGENT_STATE_DIR` to override.
-
 ## Cleanup
 
 After tasks complete (or periodically as housekeeping), run `/cmux-tab-agents:cleanup` to
