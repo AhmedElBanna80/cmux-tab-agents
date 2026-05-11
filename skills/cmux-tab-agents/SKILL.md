@@ -363,6 +363,14 @@ Use the Task() path when you want low overhead and don't need per-task git isola
 
 `~/.cmux-tab-agents/agents/` — one JSONL file per `agent_id`, plus `agent_tabs.json` for the id→surface map. Set `CMUX_AGENT_STATE_DIR` to override.
 
+## Cleanup
+
+After tasks complete (or periodically as housekeeping), run `/cmux-tab-agents:cleanup` to
+reconcile open cmux surfaces, worktrees, branches, and agent event streams against merged GitHub
+PRs. The command discovers stale state, shows a dry-run preview, and asks for per-category
+confirmation before deleting anything. See `references/cleanup-guide.md` for details and the
+difference from the agent-side `done-cleanup.sh`.
+
 ## See also
 
 References: `dispatch-reference.md` (dispatch examples), `configuration.md` (config), `operational-guide.md` (edge cases), `reporting-contract.md`, `upstream-quotes.md`, `skill-structure.md`, `status-conventions.md`.

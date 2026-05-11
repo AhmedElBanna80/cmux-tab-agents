@@ -140,6 +140,26 @@ with open(dst, "w", encoding="utf-8") as f:
 PY
 }
 
+# _build_phase_launcher <worktree> <phase> <model_flag> <effort_flag> <rendered_path>
+# Write the claude launch command to a script file in the worktree.
+# This keeps the cmux send payload short (just "cd wt && bash launcher") and
+# avoids terminal input-buffer truncation that can drop the trailing positional
+# arg ("Begin executing..."), leaving claude idle waiting for user input (ISSUE-88).
+# Echoes the absolute path to the launcher script.
+_build_phase_launcher() {
+  local wt="$1" phase="$2" model_flag="$3" effort_flag="$4" rendered="$5"
+  local launcher="$wt/.cmux-launcher-${phase}.sh"
+  cat > "$launcher" <<LAUNCHER
+#!/usr/bin/env bash
+set -euo pipefail
+exec claude --dangerously-skip-permissions${model_flag}${effort_flag} \\
+  --append-system-prompt "\$(cat $(printf '%q' "$rendered"))" \\
+  "Begin executing the task per the system prompt."
+LAUNCHER
+  chmod +x "$launcher"
+  echo "$launcher"
+}
+
 # ensure_tab_alive_or_restore <worktree> <surface> — check if surface is alive,
 # restore via crex if dead. Returns 0 if surface is alive or successfully restored,
 # non-zero otherwise.
@@ -372,25 +392,32 @@ PY
   # ("split" layout) creates a sibling pane below the planner on first
   # dispatch in this workspace and reuses it thereafter. See
   # resolve-agents-pane.sh and references/configuration.md.
-  local AGENTS_PANE
-  if ! AGENTS_PANE=$("$SCRIPT_DIR/resolve-agents-pane.sh" \
+  # When the resolver creates a new pane it also emits the auto-created
+  # surface ref on a second stdout line — reuse it to avoid a dead tab.
+  local RESOLVE_OUT AGENTS_PANE AUTO_SURFACE
+  if ! RESOLVE_OUT=$("$SCRIPT_DIR/resolve-agents-pane.sh" \
         --caller-pane "$CALLER_PANE" \
         --caller-surface "$CALLER_SURFACE" \
         --workspace "$PLANNER_WS" 2>&1); then
-    echo "$0: resolve-agents-pane.sh failed: $AGENTS_PANE" >&2
+    echo "$0: resolve-agents-pane.sh failed: $RESOLVE_OUT" >&2
     exit 1
   fi
-
-  local SPAWN_JSON
-  if ! SPAWN_JSON=$(cmux --json new-surface --type terminal --pane "$AGENTS_PANE" 2>/dev/null); then
-    echo "$0: cmux new-surface failed (pane=$AGENTS_PANE)" >&2
-    exit 1
-  fi
+  AGENTS_PANE="$(printf '%s' "$RESOLVE_OUT" | head -n1)"
+  AUTO_SURFACE="$(printf '%s' "$RESOLVE_OUT" | sed -n '2p')"
 
   local SURFACE
-  SURFACE=$(printf '%s' "$SPAWN_JSON" | python3 -c \
-    'import sys,json; d=json.load(sys.stdin); print(d.get("surface_ref") or d.get("surface",{}).get("ref",""))' 2>/dev/null)
-  [[ -z "$SURFACE" ]] && { echo "$0: could not parse surface ref from: $SPAWN_JSON" >&2; exit 1; }
+  if [[ -n "$AUTO_SURFACE" ]]; then
+    SURFACE="$AUTO_SURFACE"
+  else
+    local SPAWN_JSON
+    if ! SPAWN_JSON=$(cmux --json new-surface --type terminal --pane "$AGENTS_PANE" 2>/dev/null); then
+      echo "$0: cmux new-surface failed (pane=$AGENTS_PANE)" >&2
+      exit 1
+    fi
+    SURFACE=$(printf '%s' "$SPAWN_JSON" | python3 -c \
+      'import sys,json; d=json.load(sys.stdin); print(d.get("surface_ref") or d.get("surface",{}).get("ref",""))' 2>/dev/null)
+    [[ -z "$SURFACE" ]] && { echo "$0: could not parse surface ref from: $SPAWN_JSON" >&2; exit 1; }
+  fi
 
   # 3. Render seed prompt for this phase. Now that SURFACE is known, pass it as OWN_SURFACE.
   local TEMPLATE
@@ -450,17 +477,16 @@ PY
   [[ -n "$resolved_effort" ]] && effort_flag=" --effort $resolved_effort"
 
   # 5. Boot the tab: cd into the worktree, then launch claude with the seed.
-  # The boot one-liner reads the rendered prompt at runtime via $(cat ...) so
-  # we don't have to embed multi-KB of prompt text in a `cmux send` payload.
-  # The shell prompt accepts \n as Enter (so cd && claude runs immediately);
-  # we fire `send-key enter` separately as a safety net for terminals where
-  # the trailing newline is interpreted differently.
-  # Pass an initial user message as the trailing positional arg to claude so
-  # the agent fires immediately on boot instead of idling on the welcome
-  # screen. Avoids the fragile backgrounded `( sleep N; cmux send ... ) &`
-  # nudge that gets SIGHUP'd when the dispatcher exits.
+  # We write the full launch command to a launcher script and send only a
+  # short "cd && bash <launcher>" to the terminal. Previously the full command
+  # (with inline $(cat $RENDERED)) was embedded in the cmux send payload;
+  # for large system prompts (50KB+) this could overflow the terminal
+  # input-buffer, dropping the trailing positional arg "Begin executing..." and
+  # leaving claude idle until a subsequent cmux send woke it up (ISSUE-88).
+  local LAUNCHER
+  LAUNCHER=$(_build_phase_launcher "$WT" "$PHASE" "$model_flag" "$effort_flag" "$RENDERED")
   cmux send --surface "$SURFACE" \
-    "cd $WT && claude --dangerously-skip-permissions${model_flag}${effort_flag} --append-system-prompt \"\$(cat $RENDERED)\" \"Begin executing the task per the system prompt.\""$'\n'
+    "cd $(printf '%q' "$WT") && bash $(printf '%q' "$LAUNCHER")"$'\n'
   cmux send-key --surface "$SURFACE" enter >/dev/null 2>&1 || true
 
   # 6. Set initial dispatch pill on the planner's workspace.

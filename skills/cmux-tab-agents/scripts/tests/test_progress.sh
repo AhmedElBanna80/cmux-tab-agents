@@ -227,5 +227,140 @@ else
   fail "SKILL.md not found"
 fi
 
+# T24: --role spec-reviewer sets src to "spec" in output
+tmpdir2=$(mktemp -d)
+trap 'rm -rf "$tmpdir2"' EXIT
+(cd "$tmpdir2" && bash "$PROGRESS_SH" --role spec-reviewer started review-began 2>/dev/null)
+line24=$(head -1 "$tmpdir2/.cmux-progress.jsonl" 2>/dev/null || echo "")
+if printf '%s' "$line24" | grep -q '"src":"spec"'; then
+  pass "--role spec-reviewer sets src to 'spec'"
+else
+  fail "--role spec-reviewer did not set src to 'spec': '$line24'"
+fi
+
+# T25: default role (no --role flag) still produces src: "implementer"
+tmpdir3=$(mktemp -d)
+(cd "$tmpdir3" && bash "$PROGRESS_SH" started 2 spec-dispatch 2>/dev/null)
+line25=$(head -1 "$tmpdir3/.cmux-progress.jsonl" 2>/dev/null || echo "")
+if printf '%s' "$line25" | grep -q '"src":"implementer"'; then
+  pass "default role (no --role) produces src: implementer"
+else
+  fail "default role did not produce src: implementer: '$line25'"
+fi
+rm -rf "$tmpdir3"
+
+# T26: multiple events are append-only, all valid JSON, one per line
+tmpdir4=$(mktemp -d)
+(cd "$tmpdir4" && \
+  bash "$PROGRESS_SH" started 2 spec-dispatch && \
+  bash "$PROGRESS_SH" "done" 2 && \
+  bash "$PROGRESS_SH" started 3 spec-fix-round-1 && \
+  bash "$PROGRESS_SH" "done" 3)
+count26=$(wc -l < "$tmpdir4/.cmux-progress.jsonl" | tr -d ' ')
+all_valid=1
+while IFS= read -r l; do
+  if command -v jq >/dev/null 2>&1; then
+    printf '%s' "$l" | jq -e . >/dev/null 2>&1 || all_valid=0
+  else
+    [[ "$l" == "{"* ]] || all_valid=0
+  fi
+done < "$tmpdir4/.cmux-progress.jsonl"
+if [[ "$count26" -eq 4 && "$all_valid" -eq 1 ]]; then
+  pass "multiple events: 4 lines, all valid JSON, append-only"
+else
+  fail "multiple events: expected 4 valid-JSON lines, got $count26 (all_valid=$all_valid)"
+fi
+rm -rf "$tmpdir4"
+
+# T27: subscriber simulation — tail file, assert predicate fires on append
+tmpdir5=$(mktemp -d)
+pf="$tmpdir5/.cmux-progress.jsonl"
+touch "$pf"
+tail -f "$pf" > "$tmpdir5/tail-out.txt" 2>/dev/null &
+tail_pid=$!
+sleep 0.1
+(cd "$tmpdir5" && bash "$PROGRESS_SH" started 4 code-dispatch 2>/dev/null)
+sleep 0.2
+kill "$tail_pid" 2>/dev/null
+if grep -q '"name":"code-dispatch"' "$tmpdir5/tail-out.txt" 2>/dev/null; then
+  pass "subscriber simulation: tail sees appended event"
+else
+  fail "subscriber simulation: tail did not see appended event"
+fi
+rm -rf "$tmpdir5"
+
+# T28: --role code-reviewer sets src to "code" in output
+tmpdir6=$(mktemp -d)
+(cd "$tmpdir6" && bash "$PROGRESS_SH" --role code-reviewer started review-began 2>/dev/null)
+line28=$(head -1 "$tmpdir6/.cmux-progress.jsonl" 2>/dev/null || echo "")
+if printf '%s' "$line28" | grep -q '"src":"code"'; then
+  pass "--role code-reviewer sets src to 'code'"
+else
+  fail "--role code-reviewer did not set src to 'code': '$line28'"
+fi
+rm -rf "$tmpdir6"
+
+# T29: --role flag adds agent_role field to payload
+tmpdir7=$(mktemp -d)
+(cd "$tmpdir7" && bash "$PROGRESS_SH" --role spec-reviewer started review-began 2>/dev/null)
+line29=$(head -1 "$tmpdir7/.cmux-progress.jsonl" 2>/dev/null || echo "")
+if printf '%s' "$line29" | grep -q '"agent_role"'; then
+  pass "--role flag adds agent_role field to event"
+else
+  fail "--role flag did not add agent_role field: '$line29'"
+fi
+rm -rf "$tmpdir7"
+
+# T30: implementer prompt emits progress at spec-dispatch step (step 2)
+if [[ -r "$impl_prompt" ]]; then
+  if grep -q "started 2\|spec-dispatch\|progress.*2" "$impl_prompt"; then
+    pass "implementer prompt has step 2 spec-dispatch emit point"
+  else
+    fail "implementer prompt missing step 2 spec-dispatch emit point"
+  fi
+fi
+
+# T31: implementer prompt emits progress at code-dispatch step (step 4)
+if [[ -r "$impl_prompt" ]]; then
+  if grep -q "started 4\|code-dispatch\|progress.*4" "$impl_prompt"; then
+    pass "implementer prompt has step 4 code-dispatch emit point"
+  else
+    fail "implementer prompt missing step 4 code-dispatch emit point"
+  fi
+fi
+
+# T32: spec-reviewer prompt emits progress events
+spec_prompt="$SKILL_ROOT/prompts/spec-reviewer-tab-prompt.md"
+if [[ -r "$spec_prompt" ]]; then
+  if grep -q "progress.sh\|review-began" "$spec_prompt"; then
+    pass "spec-reviewer prompt references progress emit points"
+  else
+    fail "spec-reviewer prompt missing progress emit points"
+  fi
+else
+  fail "spec-reviewer prompt not found at $spec_prompt"
+fi
+
+# T33: code-reviewer prompt emits progress events
+code_prompt="$SKILL_ROOT/prompts/code-reviewer-tab-prompt.md"
+if [[ -r "$code_prompt" ]]; then
+  if grep -q "progress.sh\|review-began" "$code_prompt"; then
+    pass "code-reviewer prompt references progress emit points"
+  else
+    fail "code-reviewer prompt missing progress emit points"
+  fi
+else
+  fail "code-reviewer prompt not found at $code_prompt"
+fi
+
+# T34: implementer prompt emits terminal event before idle
+if [[ -r "$impl_prompt" ]]; then
+  if grep -q "progress.sh terminal\|terminal.*DONE\|terminal.*BLOCKED" "$impl_prompt"; then
+    pass "implementer prompt has terminal event emit before idle"
+  else
+    fail "implementer prompt missing terminal event emit"
+  fi
+fi
+
 printf '\n=== Results: %d passed, %d failed ===\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]
