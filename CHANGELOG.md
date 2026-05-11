@@ -5,6 +5,26 @@ All notable changes to cmux-tab-agents will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.9.2...cmux-tab-agents-v0.10.0) (2026-05-11)
+
+
+### Features
+
+* **ISSUE-103:** /cmux-tab-agents:cleanup slash command ([#104](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/104)) ([e026a9c](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/e026a9c7f3ad1327667987a58e685ee4346aca53))
+* **ISSUE-95:** add beta release channel infrastructure ([#99](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/99)) ([fda458d](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/fda458df6133b78cffb7f4e85595e09fc24dc32e)), closes [#95](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/95)
+
+
+### Bug Fixes
+
+* **ISSUE-90:** shorten tab titles to ticket + phase ([#97](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/97)) ([a19debb](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/a19debbaecee421fda19bb66c3668102d6c2ed0a))
+
+## [0.9.2](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.9.1...cmux-tab-agents-v0.9.2) (2026-05-07)
+
+
+### Bug Fixes
+
+* **ISSUE-78:** tighten implementer prompt against Step 7 bypass ([#91](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/91)) ([533116a](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/533116aef9a37d7b3dac804d4708d7d0f0ecef53))
+
 ## [0.9.1](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-v0.9.0...cmux-tab-agents-v0.9.1) (2026-05-07)
 
 

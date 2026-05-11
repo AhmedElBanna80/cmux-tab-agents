@@ -61,7 +61,11 @@ case "$*" in
     if [[ -n "${CMUX_PANES_FIXTURE:-}" ]]; then
       printf '%s\n' "$ref" >> "$CMUX_PANES_FIXTURE"
     fi
-    printf '{"pane_ref":"%s"}\n' "$ref"
+    if [[ -n "${CMUX_NEW_SURFACE_REF:-}" ]]; then
+      printf '{"pane_ref":"%s","surface_ref":"%s"}\n' "$ref" "$CMUX_NEW_SURFACE_REF"
+    else
+      printf '{"pane_ref":"%s"}\n' "$ref"
+    fi
     exit 0
     ;;
 esac
@@ -79,7 +83,7 @@ new_home() {
 
 reset_env() {
   unset CMUX_PANES_FIXTURE CMUX_PANES_JSON_FIXTURE CMUX_NEW_PANE_REF CMUX_NEW_SPLIT_FAIL
-  unset CMUX_NEW_SPLIT_DELAY CMUX_NEW_SPLIT_UNIQUE
+  unset CMUX_NEW_SPLIT_DELAY CMUX_NEW_SPLIT_UNIQUE CMUX_NEW_SURFACE_REF
   CMUX_LOG=$(mktemp)
   TEST_HOMES+=("$CMUX_LOG")
   export CMUX_LOG
@@ -497,7 +501,46 @@ else
   fail "split + caller is NOT persisted agents pane: out='$out' err=$(cat /tmp/.rap-err.t17) log=$(cat "$CMUX_LOG")"
 fi
 
-# T18: Concurrent dispatch — three resolvers fire against a fresh workspace at
+# T18 (from #89): Split mode — fresh pane created via new-split AND mock emits surface_ref →
+# resolver must echo pane ref on line 1 AND surface ref on line 2.
+reset_env
+HOME=$(new_home)
+export HOME
+export CMUX_NEW_PANE_REF="pane:fresh-18"
+export CMUX_NEW_SURFACE_REF="surface:auto-18"
+out=$("$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:30 2>/tmp/.rap-err.t18)
+line1="$(printf '%s' "$out" | head -n1)"
+line2="$(printf '%s' "$out" | sed -n '2p')"
+if [[ "$line1" == "pane:fresh-18" ]] \
+   && [[ "$line2" == "surface:auto-18" ]] \
+   && grep -q -- 'new-split' "$CMUX_LOG"; then
+  pass "fresh pane: resolver emits pane ref on line 1 and auto-surface ref on line 2"
+else
+  fail "fresh pane auto-surface: line1='$line1' line2='$line2' err=$(cat /tmp/.rap-err.t18) log=$(cat "$CMUX_LOG")"
+fi
+
+# T19 (from #89): Split mode — down-neighbor already exists (pane reused, no new-split) →
+# resolver emits only one line (the pane ref); no auto-surface line.
+reset_env
+HOME=$(new_home)
+export HOME
+export CMUX_NEW_SURFACE_REF="surface:should-not-appear"
+panes_json=$(mktemp)
+TEST_HOMES+=("$panes_json")
+write_panes_json_with_down_neighbor "$panes_json" "pane:planner" "pane:below"
+export CMUX_PANES_JSON_FIXTURE="$panes_json"
+out=$("$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:31 2>/tmp/.rap-err.t19)
+line1="$(printf '%s' "$out" | head -n1)"
+line2="$(printf '%s' "$out" | sed -n '2p')"
+if [[ "$line1" == "pane:below" ]] \
+   && [[ -z "$line2" ]] \
+   && ! grep -q -- 'new-split' "$CMUX_LOG"; then
+  pass "reused pane (down-neighbor): resolver emits only pane ref, no auto-surface line"
+else
+  fail "reused pane no auto-surface: line1='$line1' line2='$line2' err=$(cat /tmp/.rap-err.t19) log=$(cat "$CMUX_LOG")"
+fi
+
+# T20 (from #72): Concurrent dispatch — three resolvers fire against a fresh workspace at
 # the same time. With the create-path locked, exactly one new-split is issued,
 # all three resolvers echo the same ref, and the state file matches. Without
 # the lock, each racer fires its own new-split, refs diverge, and the count
@@ -509,24 +552,24 @@ panes=$(mktemp)
 TEST_HOMES+=("$panes")
 : > "$panes"
 export CMUX_PANES_FIXTURE="$panes"          # mock will append created refs here
-export CMUX_NEW_PANE_REF="pane:race-18"
+export CMUX_NEW_PANE_REF="pane:race-20"
 export CMUX_NEW_SPLIT_UNIQUE=1              # tag each new-split with mock PID
 export CMUX_NEW_SPLIT_DELAY=0.5             # widen the race window
 out_f1=$(mktemp); out_f2=$(mktemp); out_f3=$(mktemp)
 err_f1=$(mktemp); err_f2=$(mktemp); err_f3=$(mktemp)
 TEST_HOMES+=("$out_f1" "$out_f2" "$out_f3" "$err_f1" "$err_f2" "$err_f3")
-"$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:31 >"$out_f1" 2>"$err_f1" &
+"$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:32 >"$out_f1" 2>"$err_f1" &
 PID1=$!
-"$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:31 >"$out_f2" 2>"$err_f2" &
+"$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:32 >"$out_f2" 2>"$err_f2" &
 PID2=$!
-"$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:31 >"$out_f3" 2>"$err_f3" &
+"$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:32 >"$out_f3" 2>"$err_f3" &
 PID3=$!
 ec1=0; ec2=0; ec3=0
 wait "$PID1" || ec1=$?
 wait "$PID2" || ec2=$?
 wait "$PID3" || ec3=$?
 out1=$(cat "$out_f1"); out2=$(cat "$out_f2"); out3=$(cat "$out_f3")
-state="$HOME/.claude/cmux-tab-agents/workspaces/workspace:31.json"
+state="$HOME/.claude/cmux-tab-agents/workspaces/workspace:32.json"
 new_split_count=$(grep -c -- 'new-split down' "$CMUX_LOG" || true)
 if [[ "$ec1" -eq 0 ]] && [[ "$ec2" -eq 0 ]] && [[ "$ec3" -eq 0 ]] \
    && [[ -n "$out1" ]] && [[ "$out1" == "$out2" ]] && [[ "$out2" == "$out3" ]] \
@@ -538,7 +581,7 @@ else
   fail "concurrent dispatches: ec=($ec1,$ec2,$ec3) outs=($out1|$out2|$out3) new_splits=$new_split_count log=$(cat "$CMUX_LOG")"
 fi
 
-# T19: Stale lock — pre-create the lock dir to simulate a previous resolver
+# T21 (from #72): Stale lock — pre-create the lock dir to simulate a previous resolver
 # that crashed without cleaning up. The new resolver must wait, then bail with
 # a non-zero exit and a 'lock' diagnostic on stderr after ~5s. Without the
 # lock, the resolver ignores the directory entirely and creates a pane in
@@ -547,15 +590,15 @@ reset_env
 HOME=$(new_home)
 export HOME
 mkdir -p "$HOME/.claude/cmux-tab-agents/workspaces"
-LOCK_DIR_T19="$HOME/.claude/cmux-tab-agents/workspaces/.lock.workspace:32"
-mkdir "$LOCK_DIR_T19"
+LOCK_DIR_T21="$HOME/.claude/cmux-tab-agents/workspaces/.lock.workspace:33"
+mkdir "$LOCK_DIR_T21"
 err_file=$(mktemp)
 TEST_HOMES+=("$err_file")
 start=$(date +%s)
-out=$("$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:32 2>"$err_file" || true)
+out=$("$HELPER" --caller-pane pane:planner --caller-surface surface:planner --workspace workspace:33 2>"$err_file" || true)
 end=$(date +%s)
 elapsed=$((end - start))
-state="$HOME/.claude/cmux-tab-agents/workspaces/workspace:32.json"
+state="$HOME/.claude/cmux-tab-agents/workspaces/workspace:33.json"
 if [[ -z "$out" ]] && [[ "$elapsed" -ge 4 ]] && [[ "$elapsed" -le 8 ]] \
    && grep -qi 'lock' "$err_file" \
    && [[ ! -f "$state" ]]; then

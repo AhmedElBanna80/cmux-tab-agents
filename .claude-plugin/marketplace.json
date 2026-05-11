@@ -9,7 +9,17 @@
     {
       "name": "cmux-tab-agents",
       "description": "Claude Code subagent dispatcher for cmux: spawn the implementer/spec-reviewer/code-reviewer pipeline as real claude processes in cmux tabs, each in its own git worktree.",
-      "version": "0.9.1",
+      "version": "0.10.0",
+      "source": "./",
+      "author": {
+        "name": "Ahmed El Banna",
+        "email": "ahmed.henidy@alpheya.com"
+      }
+    },
+    {
+      "name": "cmux-tab-agents-beta",
+      "description": "Beta channel for cmux-tab-agents: experimental features and work-in-progress that haven't graduated to stable yet.",
+      "version": "0.11.0-beta.0",
       "source": "./",
       "author": {
         "name": "Ahmed El Banna",

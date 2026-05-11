@@ -134,6 +134,33 @@ fi
 
 ---
 
+---
+
+## Planner-side cleanup: `/cmux-tab-agents:cleanup`
+
+The `done-cleanup.sh` script above is **agent-side**: it cleans up a single completed task
+by ticket ID and is typically run automatically by the implementer or by a shell alias after
+seeing `status: DONE`.
+
+For broader, interactive housekeeping the planner can run `/cmux-tab-agents:cleanup` directly.
+This command:
+
+- **Discovers** stale state across all worktrees, surfaces, branches, and agent streams by
+  cross-referencing GitHub merged PRs and the cmux surface tree.
+- **Shows a dry-run preview** before touching anything.
+- **Asks for per-category confirmation** (surfaces / worktrees / branches / streams) so you
+  can selectively clean only what you want.
+- **Is idempotent** — running it again after a cleanup returns empty lists.
+
+Use `/cmux-tab-agents:cleanup` for periodic housekeeping sessions; use `done-cleanup.sh` for
+post-task automation immediately after a task completes.
+
+The underlying helper is `scripts/cleanup-helper.sh`, which exposes `discover`,
+`close-surfaces`, `remove-worktrees`, `delete-branches`, and `prune-streams` subcommands —
+each safe by default (dry-run) and requiring `--apply` to mutate.
+
+---
+
 ## See Also
 
 - `references/dispatch-reference.md` — Dispatching tasks
