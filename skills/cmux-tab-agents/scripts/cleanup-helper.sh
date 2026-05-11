@@ -262,12 +262,29 @@ cmd_close_surfaces() {
 
   for ref in "${surfaces[@]}"; do
     if [[ "$apply" == true ]]; then
+      # Look the surface up first so a missing ref is distinguishable from a
+      # real close-RPC failure. In --verbose mode we re-emit cmux's stderr so
+      # operators can see why the lookup failed.
+      local lookup_err
+      lookup_err=$(cmux get-surface --surface "$ref" 2>&1 >/dev/null) || {
+        if [[ "$verbose" == true ]]; then
+          printf '[verbose] not found: %s\n' "$ref"
+          [[ -n "$lookup_err" ]] && printf '[verbose] cmux: %s\n' "$lookup_err"
+        fi
+        log "  (surface $ref not found; skipping)"
+        continue
+      }
+
       log "Closing surface: $ref"
       [[ "$verbose" == true ]] && printf '[verbose] attempting close: %s\n' "$ref"
-      if cmux close-surface --surface "$ref" 2>/dev/null; then
+      local close_err
+      if close_err=$(cmux close-surface --surface "$ref" 2>&1 >/dev/null); then
         [[ "$verbose" == true ]] && printf '[verbose] closed ok: %s\n' "$ref"
       else
-        [[ "$verbose" == true ]] && printf '[verbose] close failed: %s\n' "$ref"
+        if [[ "$verbose" == true ]]; then
+          printf '[verbose] close failed: %s\n' "$ref"
+          [[ -n "$close_err" ]] && printf '[verbose] cmux: %s\n' "$close_err"
+        fi
         log "  (could not close $ref)"
       fi
     else
