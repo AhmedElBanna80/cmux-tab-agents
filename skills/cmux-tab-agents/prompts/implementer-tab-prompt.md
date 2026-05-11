@@ -111,6 +111,8 @@ fi
 
 ### Step 1 — dispatch spec-reviewer
 
+Emit before dispatch: `bash "{{SKILL_BASE}}/scripts/progress.sh" started 2 spec-dispatch`
+
 ```bash
 {{SKILL_BASE}}/scripts/dispatch-spec-reviewer.sh \
   --ticket <TICKET> --title <TITLE> --slug <SLUG> \
@@ -122,14 +124,18 @@ fi
 
 Wait on your input box. The spec-reviewer will push back to `$OWN_SURFACE` (= `{{LEAD_SURFACE}}` when you are dispatched as lead).
 
+Emit after the reviewer's verdict file is read: `bash "{{SKILL_BASE}}/scripts/progress.sh" done 2`
+
 ### Step 2 — spec-reviewer loop
 
 - **APPROVED** → proceed to Step 3 (code-reviewer).
-- **ISSUES_FOUND** → fix issues (TDD red-green), commit, then re-dispatch spec-reviewer. Increment iteration counter.
+- **ISSUES_FOUND** → emit `bash "{{SKILL_BASE}}/scripts/progress.sh" started 3 spec-fix-round-<N>`, fix issues (TDD red-green), commit, emit `bash "{{SKILL_BASE}}/scripts/progress.sh" done 3`, then re-dispatch spec-reviewer. Increment iteration counter.
   - If the **same issue is flagged twice in a row** → BLOCKED escalation (write `.cmux-task-result.md` with `status: BLOCKED`, idle; the Stop hook + result file inform the planner).
   - If **iteration counter ≥ {{MAX_LOOP_ITERATIONS}}** → BLOCKED escalation.
 
 ### Step 3 — dispatch code-reviewer
+
+Emit before dispatch: `bash "{{SKILL_BASE}}/scripts/progress.sh" started 4 code-dispatch`
 
 ```bash
 {{SKILL_BASE}}/scripts/dispatch-code-reviewer.sh \
@@ -140,10 +146,12 @@ Wait on your input box. The spec-reviewer will push back to `$OWN_SURFACE` (= `{
   --lead-surface "$OWN_SURFACE"
 ```
 
+Emit after the reviewer's verdict file is read: `bash "{{SKILL_BASE}}/scripts/progress.sh" done 4`
+
 ### Step 4 — code-reviewer loop
 
 - **APPROVED** → proceed to Step 5.
-- **ISSUES_FOUND** → fix issues (TDD), commit, then re-dispatch code-reviewer. Increment counter.
+- **ISSUES_FOUND** → emit `bash "{{SKILL_BASE}}/scripts/progress.sh" started 5 code-fix-round-<N>`, fix issues (TDD), commit, emit `bash "{{SKILL_BASE}}/scripts/progress.sh" done 5`, then re-dispatch code-reviewer. Increment counter.
   - Same circuit-breaker rules as Step 2.
 
 ### Step 5 — save session state (crex)
@@ -172,7 +180,8 @@ CREX_SESSION="$({{SKILL_BASE}}/scripts/crex-save.sh 2>/dev/null || echo '')"
 3. Run `{{SKILL_BASE}}/scripts/finish-task.sh {{FINISH_MODE}} <WORKTREE>`.
 4. Emit finish done: `bash "{{SKILL_BASE}}/scripts/progress.sh" done 6`
 5. Write `.cmux-task-result.md` AND `.cmux-implementer-result.md` (schema in `references/reporting-contract.md`), include `crex_session: $CREX_SESSION` in the frontmatter.
-6. Idle. Do **not** push to the planner — the planner waits via `task-adapter.sh` / `poll-result.sh` and reads the result file directly. The Stop lifecycle hook will flip the `<TICKET>-implementer` pill to your terminal status and notify; no `cmux send` to the planner.
+6. Emit terminal status: `bash "{{SKILL_BASE}}/scripts/progress.sh" terminal DONE` (or `terminal BLOCKED` if BLOCKED).
+7. Idle. Do **not** push to the planner — the planner waits via `task-adapter.sh` / `poll-result.sh` and reads the result file directly. The Stop lifecycle hook will flip the `<TICKET>-implementer` pill to your terminal status and notify; no `cmux send` to the planner.
 
 ### Circuit-breaker (hard rule)
 

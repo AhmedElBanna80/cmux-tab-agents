@@ -26,6 +26,7 @@ The status pill (`<TICKET>-spec-reviewer = working`) and the start-of-phase log 
 
 1. `OWN_SURFACE="{{OWN_SURFACE}}"` — own surface ref for focus shortcuts.
 2. `cd <WORKTREE> && pwd && git log --oneline -5` — verify worktree path and see recent commits.
+3. Emit review started: `bash "{{SKILL_BASE}}/scripts/progress.sh" --role spec-reviewer started review-began`
 
 ## What was requested
 
@@ -65,6 +66,9 @@ Update cmux and push the verdict to the implementer (lead). The planner does **n
 ```bash
 STATUS="APPROVED|ISSUES_FOUND"
 SUMMARY="<one-line summary>"
+
+# Emit review done with verdict before pushing
+bash "{{SKILL_BASE}}/scripts/progress.sh" --role spec-reviewer done review-began verdict=$STATUS
 
 # Notify the implementer (task lead) on either verdict so the agent loop
 # advances. ISSUES_FOUND → implementer fixes; APPROVED → implementer
