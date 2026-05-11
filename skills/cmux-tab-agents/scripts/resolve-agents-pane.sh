@@ -180,10 +180,41 @@ if [[ -f "$STATE_FILE" ]]; then
   fi
 fi
 
-# Create a new agents pane by splitting the planner's own surface downward.
-# Using `cmux new-split --surface` (vs `cmux new-pane --workspace`) anchors
-# the new pane to the caller's specific surface, so unrelated panes in the
-# workspace are left untouched.
+# Step 3: critical section — guard the create path against concurrent
+# dispatches with a mkdir-as-lock. mkdir is atomic on POSIX (EEXIST is
+# returned to all but one process), portable everywhere, and trap-friendly
+# on crash. Without this, two top-level dispatches racing into a fresh
+# workspace each fire `cmux new-split` and produce duplicate agents panes.
+mkdir -p "$STATE_DIR"
+LOCK_DIR="$STATE_DIR/.lock.${WORKSPACE//\//_}"
+ATTEMPTS=0
+until mkdir "$LOCK_DIR" 2>/dev/null; do
+  ATTEMPTS=$((ATTEMPTS + 1))
+  if (( ATTEMPTS > 50 )); then
+    echo "resolve-agents-pane: lock '$LOCK_DIR' held >5s; bailing" >&2
+    exit 1
+  fi
+  sleep 0.1
+done
+trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT INT TERM
+
+# Re-check inside the lock — another racer may have completed the create
+# path while we were waiting. This is the payoff: exactly one resolver in
+# the cohort actually issues new-split.
+if [[ -f "$STATE_FILE" ]]; then
+  EXISTING_REF="$(jq -r '.agents_pane_ref // empty' "$STATE_FILE" 2>/dev/null || true)"
+  if [[ -n "$EXISTING_REF" ]] \
+     && cmux list-panes --workspace "$WORKSPACE" 2>/dev/null \
+        | grep -Fxq -- "$EXISTING_REF"; then
+    printf '%s\n' "$EXISTING_REF"
+    exit 0
+  fi
+fi
+
+# Genuinely first into the create path. Split the planner's own surface
+# downward — `cmux new-split --surface` (vs `cmux new-pane --workspace`)
+# anchors the new pane to the caller's specific surface, so unrelated panes
+# in the workspace are left untouched.
 SPAWN_JSON=""
 if ! SPAWN_JSON=$(cmux --json new-split down \
                    --surface "$CALLER_SURFACE" \
@@ -203,4 +234,6 @@ AUTO_SURFACE="$(printf '%s' "$SPAWN_JSON" | jq -r '.surface_ref // empty' 2>/dev
 persist_state "$NEW_REF"
 
 printf '%s\n' "$NEW_REF"
-[[ -n "$AUTO_SURFACE" ]] && printf '%s\n' "$AUTO_SURFACE"
+if [[ -n "$AUTO_SURFACE" ]]; then
+  printf '%s\n' "$AUTO_SURFACE"
+fi
