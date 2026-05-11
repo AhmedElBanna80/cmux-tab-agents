@@ -2,7 +2,8 @@
 # cleanup-helper.sh — planner-side cleanup helper for cmux-tab-agents
 #
 # Subcommands (all dry-run by default; pass --apply to mutate):
-#   discover                         — emit JSON of four cleanup-candidate categories
+#   discover [--apply]               — emit JSON of four cleanup-candidate categories;
+#                                       with --apply, also runs each apply step in one pass
 #   close-surfaces [--apply] <ref>…  — close idle cmux surfaces
 #   remove-worktrees [--apply] <path>… — remove stale worktree directories
 #   delete-branches [--apply] <repo> <branch>… — delete merged git branches (safe: -d only)
@@ -26,7 +27,8 @@ usage() {
 Usage: cleanup-helper.sh <subcommand> [--apply] [args...]
 
 Subcommands:
-  discover                          Emit JSON with cleanup candidates
+  discover [--apply]                Emit JSON with cleanup candidates;
+                                    with --apply, immediately runs each apply step
   close-surfaces [--apply] <ref>…   Close idle cmux surfaces (dry-run by default)
   remove-worktrees [--apply] <p>…   Remove stale worktree directories (dry-run by default)
   delete-branches [--apply] <repo> <branch>…  Delete merged branches via git branch -d (dry-run by default)
@@ -81,6 +83,14 @@ _pr_is_merged() {
 # ── discover ───────────────────────────────────────────────────────────────────
 
 cmd_discover() {
+  local apply=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --apply) apply=true; shift ;;
+      *) shift ;;
+    esac
+  done
+
   local worktree_base="${CMUX_TAB_AGENTS_WORKTREE_BASE:-$HOME/POC/worktrees/cmux-tab-agents}"
   local agents_dir="${CMUX_TAB_AGENTS_AGENTS_DIR:-$HOME/.cmux-tab-agents/agents}"
 
@@ -184,6 +194,49 @@ print(json.dumps({
     'stale_streams': $(printf '%s' "$stale_streams"),
 }, indent=2))
 "
+
+  # ── apply (if requested) ───────────────────────────────────────────────────
+  if [[ "$apply" == true ]]; then
+    printf '\n=== applying cleanup ===\n'
+
+    # Parse JSON arrays into bash arrays via python.
+    local -a surfaces=() worktrees=() streams=()
+    while IFS= read -r item; do [[ -n "$item" ]] && surfaces+=("$item"); done < <(
+      printf '%s' "$idle_surfaces" | python3 -c "import sys,json; [print(x) for x in json.load(sys.stdin)]"
+    )
+    while IFS= read -r item; do [[ -n "$item" ]] && worktrees+=("$item"); done < <(
+      printf '%s' "$merged_worktrees" | python3 -c "import sys,json; [print(x) for x in json.load(sys.stdin)]"
+    )
+    while IFS= read -r item; do [[ -n "$item" ]] && streams+=("$item"); done < <(
+      printf '%s' "$stale_streams" | python3 -c "import sys,json; [print(x) for x in json.load(sys.stdin)]"
+    )
+
+    if [[ "${#surfaces[@]}" -gt 0 ]]; then
+      cmd_close_surfaces --apply "${surfaces[@]}"
+    fi
+    if [[ "${#worktrees[@]}" -gt 0 ]]; then
+      cmd_remove_worktrees --apply "${worktrees[@]}"
+    fi
+
+    # merged_branches is a list of {repo,branch,ticket} objects — group by repo.
+    while IFS=$'\t' read -r repo branch; do
+      [[ -z "$repo" || -z "$branch" ]] && continue
+      cmd_delete_branches --apply "$repo" "$branch"
+    done < <(
+      printf '%s' "$merged_branches" | python3 -c "
+import sys, json
+for b in json.load(sys.stdin):
+    print(f\"{b.get('repo','')}\t{b.get('branch','')}\")
+"
+    )
+
+    if [[ "${#streams[@]}" -gt 0 ]]; then
+      cmd_prune_streams --apply "${streams[@]}"
+    fi
+
+    printf '=== applied: %d surfaces, %d worktrees, %d streams ===\n' \
+      "${#surfaces[@]}" "${#worktrees[@]}" "${#streams[@]}"
+  fi
 }
 
 # ── close-surfaces ─────────────────────────────────────────────────────────────
