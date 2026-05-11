@@ -83,11 +83,11 @@ sleep 0.3
 
 # Emit a realistic sequence directly into the JSONL stream.
 emit started implementer 1 boot
-emit done    implementer 1 boot
+emit "done"  implementer 1 boot
 emit started spec-reviewer review review-began
-emit done    spec-reviewer review review-began
+emit "done"  spec-reviewer review review-began
 emit started code-reviewer review review-began
-emit done    code-reviewer review review-began
+emit "done"  code-reviewer review review-began
 sleep 0.5
 
 # Wait up to 3s for monitor to exit on its own
