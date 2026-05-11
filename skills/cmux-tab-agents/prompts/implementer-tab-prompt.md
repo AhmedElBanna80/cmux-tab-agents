@@ -40,8 +40,11 @@ The status pill (`<TICKET>-implementer = working`) and the start-of-phase log en
 
 1. `OWN_SURFACE="{{OWN_SURFACE}}"` — own surface ref for focus shortcuts.
 2. `cd <WORKTREE> && pwd && git status` — verify worktree path and clean state. (Use values from task context below.)
+3. Emit boot started: `bash "{{SKILL_BASE}}/scripts/progress.sh" started 1 boot`
 
 If pwd doesn't match the worktree path exactly, STOP. Set status to `blocked` and notify planner.
+
+Emit boot done after confirming the worktree is correct: `bash "{{SKILL_BASE}}/scripts/progress.sh" done 1`
 
 ## Before You Begin
 
@@ -165,9 +168,11 @@ When **both reviewers have APPROVED**:
 CREX_SESSION="$({{SKILL_BASE}}/scripts/crex-save.sh 2>/dev/null || echo '')"
 ```
 
-2. Run `{{SKILL_BASE}}/scripts/finish-task.sh {{FINISH_MODE}} <WORKTREE>`.
-3. Write `.cmux-task-result.md` AND `.cmux-implementer-result.md` (schema in `references/reporting-contract.md`), include `crex_session: $CREX_SESSION` in the frontmatter.
-4. Idle. Do **not** push to the planner — the planner waits via `task-adapter.sh` / `poll-result.sh` and reads the result file directly. The Stop lifecycle hook will flip the `<TICKET>-implementer` pill to your terminal status and notify; no `cmux send` to the planner.
+2. Emit finish started: `bash "{{SKILL_BASE}}/scripts/progress.sh" started 6 finish`
+3. Run `{{SKILL_BASE}}/scripts/finish-task.sh {{FINISH_MODE}} <WORKTREE>`.
+4. Emit finish done: `bash "{{SKILL_BASE}}/scripts/progress.sh" done 6`
+5. Write `.cmux-task-result.md` AND `.cmux-implementer-result.md` (schema in `references/reporting-contract.md`), include `crex_session: $CREX_SESSION` in the frontmatter.
+6. Idle. Do **not** push to the planner — the planner waits via `task-adapter.sh` / `poll-result.sh` and reads the result file directly. The Stop lifecycle hook will flip the `<TICKET>-implementer` pill to your terminal status and notify; no `cmux send` to the planner.
 
 ### Circuit-breaker (hard rule)
 
