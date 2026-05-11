@@ -19,7 +19,6 @@
     {
       "name": "cmux-tab-agents-beta",
       "description": "Beta channel for cmux-tab-agents: experimental features and work-in-progress that haven't graduated to stable yet.",
-<<<<<<< HEAD
       "version": "0.12.0-beta.0",
       "source": "./",
       "author": {
