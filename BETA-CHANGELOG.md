@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0-beta.0](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-beta-v0.11.1-beta.0...cmux-tab-agents-beta-v0.12.0-beta.0) (2026-05-11)
+
+
+### Features
+
+* **ISSUE-112:** workspace state tracking + cleanup manifest ([#113](https://github.com/AhmedElBanna80/cmux-tab-agents/issues/113)) ([e94135c](https://github.com/AhmedElBanna80/cmux-tab-agents/commit/e94135c6ab892800c6b9f2ed68cdd793e2600101))
+
 ## [0.11.1-beta.0](https://github.com/AhmedElBanna80/cmux-tab-agents/compare/cmux-tab-agents-beta-v0.11.0-beta.0...cmux-tab-agents-beta-v0.11.1-beta.0) (2026-05-11)
 
 
