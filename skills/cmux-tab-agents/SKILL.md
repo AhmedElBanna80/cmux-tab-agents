@@ -172,6 +172,26 @@ Prints the new tab's surface ref to stderr and the full result file body to stdo
 
 **`--planner-surface` is deprecated:** it is now a no-op (the push channel was removed). Kept for one release for backward compatibility; passing any value is silently ignored. `task-adapter.sh` forces it to `""` regardless.
 
+### Progress event stream (experimental)
+
+**⚠ Experimental** — this channel is additive and does not replace any existing channel. It is a POC; the schema and helper may change in a follow-up release.
+
+The implementer emits structured JSONL progress events to `<worktree>/.cmux-progress.jsonl` at two instrumented points (boot + finish). A planner can subscribe by opening a long-lived `tail -f` shell and using `Monitor` to wait for specific events declaratively — no polling the result file, no double-counting with `task-adapter.sh`.
+
+```bash
+# 1. Open a background tail shell once per task:
+touch "$WORKTREE/.cmux-progress.jsonl"
+tail -f "$WORKTREE/.cmux-progress.jsonl"   # note the returned shellId, e.g. "shell-42"
+
+# 2. Wait for the implementer's boot to complete:
+Monitor(shellId="shell-42", until='"kind":"done".*"name":"boot"', timeout=60)
+
+# 3. Wait for the finish step to complete (PR opened / merge done):
+Monitor(shellId="shell-42", until='"kind":"done".*"name":"finish"', timeout=600)
+```
+
+Event schema: `{v, ts, src, sid, kind, name, payload}` where `v=1`, `src="implementer"`, `kind` is `"started"` or `"done"`, and `payload` carries `{"step": N}`. See `scripts/progress.sh` for the emitter and `scripts/demo-monitor-progress.sh` for a full documented example.
+
 ### Don't double-poll — task-adapter already blocks
 
 `task-adapter.sh` polls the result file internally. When you run it via
