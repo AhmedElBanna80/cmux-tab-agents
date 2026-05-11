@@ -26,6 +26,48 @@ The status pill (`<TICKET>-code-reviewer = working`) and the start-of-phase log 
 
 1. `OWN_SURFACE="{{OWN_SURFACE}}"` — own surface ref for focus shortcuts.
 2. `cd <WORKTREE> && pwd && git log --oneline -5` — verify path and see recent commits.
+3. Emit review started: `bash "{{SKILL_BASE}}/scripts/progress.sh" --role code-reviewer started review-began`
+
+## Stream coordination (Phase 3)
+
+When you emit your verdict, also emit it on the v2 progress stream targeting the implementer:
+
+```bash
+# APPROVED
+bash "{{SKILL_BASE}}/scripts/progress.sh" \
+  --role code-reviewer --target implementer \
+  --verdict APPROVED \
+  verdict 4 code-review
+
+# ISSUES_FOUND with feedback + circuit-breaker hash
+ISSUE_HASH=$(printf '%s' "$ISSUE_SUMMARY" | shasum -a 256 | cut -c1-12)
+bash "{{SKILL_BASE}}/scripts/progress.sh" \
+  --role code-reviewer --target implementer \
+  --verdict ISSUES_FOUND \
+  --feedback "$ISSUE_SUMMARY" \
+  --issue-hash "$ISSUE_HASH" \
+  verdict 4 code-review
+```
+
+To react to "ready for re-review" feedback without being re-dispatched, source the watcher at boot:
+
+```bash
+# shellcheck source=/dev/null
+source "{{SKILL_BASE}}/scripts/stream-watcher.sh"
+
+handle_code_event() {
+  local event="$1"
+  local feedback
+  feedback=$(echo "$event" | jq -r '.feedback // empty' 2>/dev/null)
+  if [[ "$feedback" == *"ready for re-review"* ]]; then
+    echo "[code] implementer signaled re-review; restart your code checks"
+  fi
+}
+
+watch_stream code-reviewer handle_code_event &
+```
+
+Keep emitting the v1 `review-began` event — v2 verdicts are additive.
 
 ## Inputs
 
@@ -59,6 +101,9 @@ Update cmux and push the verdict to the implementer (lead). The planner does **n
 ```bash
 STATUS="APPROVED|ISSUES_FOUND"
 SUMMARY="<one-line summary>"
+
+# Emit review done with verdict before pushing
+bash "{{SKILL_BASE}}/scripts/progress.sh" --role code-reviewer done review-began verdict=$STATUS
 
 # Notify the implementer (task lead) on either verdict so the agent loop
 # advances. ISSUES_FOUND → implementer fixes; APPROVED → implementer
