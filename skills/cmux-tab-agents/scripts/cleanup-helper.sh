@@ -408,7 +408,7 @@ cmd_check_syntax() {
   fi
 
   local rc=0
-  for f in ${files[@]}; do
+  for f in "${files[@]}"; do
     if [[ ! -f "$f" ]]; then
       printf '[check-syntax] not found: %s\n' "$f" >&2
       rc=1

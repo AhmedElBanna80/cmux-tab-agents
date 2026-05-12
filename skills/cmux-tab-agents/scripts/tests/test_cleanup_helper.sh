@@ -559,6 +559,21 @@ else
   fail "T22: check-syntax did not detect parse error (rc=$rc22): $out22"
 fi
 
+# ── T23: check-syntax handles paths with spaces correctly ────────────────────
+
+tmpT23="$GLOBAL_TMPDIR/T23 with spaces"
+mkdir -p "$tmpT23"
+good23="$tmpT23/good.sh"
+printf '#!/usr/bin/env bash\necho ok\n' > "$good23"
+
+out23=$(bash "$HELPER" check-syntax "$good23" 2>&1)
+rc23=$?
+if [[ $rc23 -eq 0 ]] && printf '%s' "$out23" | grep -qF "$good23"; then
+  pass "T23: check-syntax accepts paths containing spaces"
+else
+  fail "T23: check-syntax mishandled spaced path (rc=$rc23): $out23"
+fi
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 
 printf '\n=== Results: %d passed, %d failed ===\n' "$PASS" "$FAIL"
