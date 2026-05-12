@@ -534,6 +534,46 @@ else
   fail "T20: stderr not surfaced under --verbose: $out20"
 fi
 
+# ── T21: check-syntax subcommand validates script and returns 0 on success ────
+
+out21=$(bash "$HELPER" check-syntax 2>&1)
+rc21=$?
+if [[ $rc21 -eq 0 ]] && printf '%s' "$out21" | grep -qiE "ok|valid|pass"; then
+  pass "T21: check-syntax returns 0 and prints ok marker on valid script"
+else
+  fail "T21: check-syntax failed (rc=$rc21): $out21"
+fi
+
+# ── T22: check-syntax detects a syntax error in a target file ─────────────────
+
+tmpT22="$GLOBAL_TMPDIR/T22"
+mkdir -p "$tmpT22"
+bad22="$tmpT22/bad.sh"
+printf '#!/usr/bin/env bash\nif then fi\n' > "$bad22"
+
+out22=$(bash "$HELPER" check-syntax "$bad22" 2>&1)
+rc22=$?
+if [[ $rc22 -ne 0 ]]; then
+  pass "T22: check-syntax returns non-zero on file with bash parse error"
+else
+  fail "T22: check-syntax did not detect parse error (rc=$rc22): $out22"
+fi
+
+# ── T23: check-syntax handles paths with spaces correctly ────────────────────
+
+tmpT23="$GLOBAL_TMPDIR/T23 with spaces"
+mkdir -p "$tmpT23"
+good23="$tmpT23/good.sh"
+printf '#!/usr/bin/env bash\necho ok\n' > "$good23"
+
+out23=$(bash "$HELPER" check-syntax "$good23" 2>&1)
+rc23=$?
+if [[ $rc23 -eq 0 ]] && printf '%s' "$out23" | grep -qF "$good23"; then
+  pass "T23: check-syntax accepts paths containing spaces"
+else
+  fail "T23: check-syntax mishandled spaced path (rc=$rc23): $out23"
+fi
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 
 printf '\n=== Results: %d passed, %d failed ===\n' "$PASS" "$FAIL"
