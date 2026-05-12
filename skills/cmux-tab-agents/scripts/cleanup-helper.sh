@@ -35,6 +35,7 @@ Subcommands:
   remove-worktrees [--apply] <p>…   Remove stale worktree directories (dry-run by default)
   delete-branches [--apply] <repo> <branch>…  Delete merged branches via git branch -d (dry-run by default)
   prune-streams [--apply] <path>…   Remove orphaned agent JSONL files (dry-run by default)
+  check-syntax [<path>…]            Run bash -n on each path (default: this script)
 
 Pass --apply to actually mutate; omit for dry-run (safe default).
 EOF
@@ -393,6 +394,37 @@ cmd_prune_streams() {
   done
 }
 
+# ── check-syntax ───────────────────────────────────────────────────────────────
+
+cmd_check_syntax() {
+  local files=()
+  while [[ $# -gt 0 ]]; do
+    files+=("$1"); shift
+  done
+
+  # Default: check this script itself
+  if [[ "${#files[@]}" -eq 0 ]]; then
+    files=("$0")
+  fi
+
+  local rc=0
+  for f in ${files[@]}; do
+    if [[ ! -f "$f" ]]; then
+      printf '[check-syntax] not found: %s\n' "$f" >&2
+      rc=1
+      continue
+    fi
+    if bash -n "$f" 2>/dev/null; then
+      printf '[check-syntax] ok: %s\n' "$f"
+    else
+      printf '[check-syntax] FAIL: %s\n' "$f" >&2
+      bash -n "$f"
+      rc=1
+    fi
+  done
+  return $rc
+}
+
 # ── dispatch ───────────────────────────────────────────────────────────────────
 
 [[ $# -eq 0 ]] && usage
@@ -405,6 +437,7 @@ case "$SUBCMD" in
   remove-worktrees) cmd_remove_worktrees "$@" ;;
   delete-branches)  cmd_delete_branches "$@" ;;
   prune-streams)    cmd_prune_streams "$@" ;;
+  check-syntax)     cmd_check_syntax "$@" ;;
   --help|-h)        usage ;;
   *)                error "Unknown subcommand: $SUBCMD"; usage ;;
 esac
