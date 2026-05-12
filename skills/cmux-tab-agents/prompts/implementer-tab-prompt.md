@@ -231,6 +231,20 @@ BLOCKED if either:
 - Same reviewer flags the **same issue in two consecutive rounds**, or
 - Total loop iterations ≥ `{{MAX_LOOP_ITERATIONS}}`.
 
+**Detecting "same issue" — use `duplicate-issue-check.sh`** (ISSUE-136). Comparing reviewer `issue_hash` alone is insufficient: VALIDATE-003 showed that the same semantic complaint can re-arrive with a different hash if the reviewer rephrased it, silently bypassing the circuit-breaker. After each ISSUES_FOUND round, store the reviewer's `issue_hash` and `feedback`. Before re-dispatching, run:
+
+```bash
+if bash "{{SKILL_BASE}}/scripts/duplicate-issue-check.sh" check \
+     --prev-hash "$PREV_ISSUE_HASH" --new-hash "$NEW_ISSUE_HASH" \
+     --prev-feedback "$PREV_FEEDBACK" --new-feedback "$NEW_FEEDBACK"; then
+  # Duplicate detected (hash match OR ≥70% keyword overlap OR ≥3 shared keywords)
+  # → BLOCKED escalation
+  echo "[impl] circuit-breaker tripped — same issue twice in a row"
+fi
+```
+
+The script prints a JSON report (`hash_match`, `keyword_overlap_count`, `keyword_overlap_ratio`, `reason`) to stdout — log it so the planner can see *why* the breaker tripped. Exit code 0 = duplicate, 1 = distinct.
+
 On BLOCKED: write `.cmux-task-result.md` with `status: BLOCKED`, idle. Do not push to the planner — the Stop hook flips the pill and the planner's poll picks up the file.
 
 ---
