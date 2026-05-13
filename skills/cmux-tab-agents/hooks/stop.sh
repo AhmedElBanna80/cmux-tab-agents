@@ -92,4 +92,14 @@ if [[ -n "$PLANNER_WS" ]]; then
 fi
 hook_cmux notify "${PILL}: ${STATUS}"
 
+# ISSUE-178: reap the periodic health-check loop launched by SessionStart.
+HEALTH_PID_FILE="$WT/.cmux-state/health.pid"
+if [[ -f "$HEALTH_PID_FILE" ]]; then
+  HPID=$(cat "$HEALTH_PID_FILE" 2>/dev/null || true)
+  if [[ -n "$HPID" ]] && kill -0 "$HPID" 2>/dev/null; then
+    kill "$HPID" 2>/dev/null || true
+  fi
+  rm -f "$HEALTH_PID_FILE" 2>/dev/null || true
+fi
+
 exit 0
